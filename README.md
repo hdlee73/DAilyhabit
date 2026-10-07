@@ -18,6 +18,6 @@
 ```bash
 ./gradlew assembleDebug
 ```
-`v*` 태그를 푸시하면 GitHub Actions가 APK를 빌드해 Release에 올립니다.
+`VERSION` 파일의 버전을 올려 main에 푸시하면 GitHub Actions가 APK를 빌드해 `v<버전>` Release로 올립니다.
 
 > 저장소에 포함된 `app/debug.keystore`는 공개 디버그 키입니다. 업데이트 설치가 끊기지 않도록 고정해 둔 것이며, 스토어 배포용이 아닙니다.
