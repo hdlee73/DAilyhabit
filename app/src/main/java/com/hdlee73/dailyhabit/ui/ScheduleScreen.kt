@@ -1,28 +1,35 @@
 package com.hdlee73.dailyhabit.ui
 
 import android.Manifest
+import android.content.ContentUris
+import android.content.Intent
+import android.provider.CalendarContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,17 +39,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hdlee73.dailyhabit.data.CalendarEvent
 import com.hdlee73.dailyhabit.data.CalendarRepository
 import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 private const val DAYS = 7
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -50,33 +61,27 @@ fun ScheduleScreen(modifier: Modifier = Modifier) {
     var granted by remember { mutableStateOf(repo.hasPermission()) }
     var reload by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(true) }
+    var refreshing by remember { mutableStateOf(false) }
     var grouped by remember { mutableStateOf<Map<LocalDate, List<CalendarEvent>>>(emptyMap()) }
     val today = LocalDate.now()
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        granted = it
-    }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
 
     LaunchedEffect(granted, reload) {
         if (!granted) return@LaunchedEffect
-        loading = true
         grouped = repo.groupByDay(repo.events(today, DAYS), today, DAYS)
         loading = false
+        refreshing = false
     }
 
     if (!granted) {
         Column(
-            modifier.fillMaxSize().padding(24.dp),
+            modifier.fillMaxSize().padding(32.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                "휴대폰에 동기화된 구글 캘린더 일정을 보여드리려면 캘린더 읽기 권한이 필요해요.",
-                textAlign = TextAlign.Center,
-            )
-            Button(onClick = { launcher.launch(Manifest.permission.READ_CALENDAR) }, modifier = Modifier.padding(top = 16.dp)) {
-                Text("캘린더 권한 허용")
-            }
+            EmptyState("📅", "캘린더를 연결해 주세요", "휴대폰에 동기화된 구글 캘린더 일정을 보여드리려면 캘린더 읽기 권한이 필요해요.")
+            Button(onClick = { launcher.launch(Manifest.permission.READ_CALENDAR) }) { Text("캘린더 권한 허용") }
         }
         return
     }
@@ -86,60 +91,109 @@ fun ScheduleScreen(modifier: Modifier = Modifier) {
         return
     }
 
-    LazyColumn(
-        modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    val total = grouped.values.flatten().distinctBy { it.id to it.start }.size
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = { refreshing = true; reload++ },
+        modifier = modifier.fillMaxSize(),
     ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("앞으로 7일 일정", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f))
-                TextButton(onClick = { reload++ }) { Text("새로고침") }
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(bottom = 4.dp)) {
+                    SectionLabel("앞으로 7일", Modifier.weight(1f))
+                    Text("일정 ${total}개", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
             }
-        }
-        items(grouped.entries.toList(), key = { it.key.toEpochDay() }) { (day, events) ->
-            DayCard(day, events, today)
-        }
-        item {
-            Text(
-                "구글 캘린더 일정이 보이지 않으면 휴대폰 설정 > 계정 > Google에서 캘린더 동기화가 켜져 있는지 확인해 주세요.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            items(grouped.entries.toList(), key = { it.key.toEpochDay() }) { (day, events) ->
+                DayCard(day, events, today)
+            }
+            item {
+                Text(
+                    "아래로 당기면 새로고침돼요. 구글 캘린더 일정이 보이지 않으면 휴대폰 설정 > 계정 > Google에서 캘린더 동기화를 확인해 주세요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun DayCard(day: LocalDate, events: List<CalendarEvent>, today: LocalDate) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(formatKoreanDate(day), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    val context = LocalContext.current
+    val isToday = day == today
+    val weekend = day.dayOfWeek.value >= 6
+    SoftCard(color = if (isToday) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else MaterialTheme.colorScheme.surfaceContainerLowest) {
+        Row(verticalAlignment = Alignment.Top) {
+            // 날짜 기둥
+            Column(Modifier.width(52.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    day.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = when {
+                        isToday -> MaterialTheme.colorScheme.primary
+                        day.dayOfWeek.value == 7 -> Color(0xFFD9534F)
+                        day.dayOfWeek.value == 6 -> Color(0xFF3A8FD1)
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                Box(
+                    Modifier
+                        .padding(top = 2.dp)
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "${day.dayOfMonth}",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
                 val rel = relativeDayLabel(day, today)
-                if (rel.isNotEmpty()) {
-                    Text("  $rel", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                if (rel.isNotEmpty() && !isToday) {
+                    Text(rel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            if (events.isEmpty()) {
-                Text("일정 없음", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-            }
-            events.forEach { e ->
-                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.Top) {
-                    Box(
-                        Modifier.padding(top = 6.dp).size(10.dp).background(
-                            if (e.color != 0) Color(e.color) else MaterialTheme.colorScheme.primary, CircleShape
-                        )
+            Column(Modifier.weight(1f).padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (events.isEmpty()) {
+                    Text(
+                        if (weekend) "여유로운 하루예요" else "일정 없음",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 12.dp),
                     )
-                    Text(formatEventTime(e, day), style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(start = 8.dp).width(96.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(e.title, style = MaterialTheme.typography.bodyLarge)
-                        if (e.location.isNotBlank()) {
-                            Text(e.location, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                events.forEach { e ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f))
+                            .clickable {
+                                val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, e.id)
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+                            },
+                    ) {
+                        Box(
+                            Modifier
+                                .width(4.dp)
+                                .fillMaxHeight()
+                                .background(if (e.color != 0) Color(e.color) else MaterialTheme.colorScheme.primary)
+                        )
+                        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                            Text(e.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            val meta = listOf(formatEventTime(e, day), e.location).filter { it.isNotBlank() }.joinToString(" · ")
+                            Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }

@@ -30,3 +30,25 @@ fun formatEventTime(e: CalendarEvent, day: LocalDate): String {
         else -> "종일"
     }
 }
+
+/** 자정부터 분 → "오전 9:00" */
+fun formatMinute(minute: Int): String {
+    val h = minute / 60
+    val m = minute % 60
+    val ampm = if (h < 12) "오전" else "오후"
+    val h12 = when (val x = h % 12) { 0 -> 12; else -> x }
+    return "$ampm $h12:${"%02d".format(m)}"
+}
+
+/** 할 일 마감 표시 */
+fun formatDue(day: LocalDate, minute: Int?, today: LocalDate = LocalDate.now()): String {
+    val rel = relativeDayLabel(day, today)
+    val dateText = when {
+        rel.isNotEmpty() -> rel
+        day.year == today.year -> "${day.monthValue}/${day.dayOfMonth} (${day.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)})"
+        else -> "${day.year}. ${day.monthValue}. ${day.dayOfMonth}."
+    }
+    return if (minute != null) "$dateText ${formatMinute(minute)}" else dateText
+}
+
+val WEEKDAY_SHORT = listOf("월", "화", "수", "목", "금", "토", "일")

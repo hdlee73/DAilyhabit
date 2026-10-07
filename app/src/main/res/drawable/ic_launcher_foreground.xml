@@ -3,7 +3,16 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M50,30h8v12h12v8h-12v28h-8v-28h-12v-8h12z" />
+    <!-- 떠오르는 해 -->
+    <path android:fillColor="#FFFFF4E0" android:pathData="M37,64 A17,17 0 0,1 71,64 Z" />
+    <!-- 햇살 -->
+    <path android:strokeColor="#FFFFF4E0" android:strokeWidth="3.5" android:strokeLineCap="round"
+        android:pathData="M54,41 L54,35 M38.4,48.4 L34.2,44.2 M69.6,48.4 L73.8,44.2 M32.2,57 L27,55.3 M75.8,57 L81,55.3" />
+    <!-- 지평선 -->
+    <path android:strokeColor="#FFFFF4E0" android:strokeWidth="4" android:strokeLineCap="round"
+        android:pathData="M29,68 L79,68" />
+    <path android:strokeColor="#B3FFF4E0" android:strokeWidth="3" android:strokeLineCap="round"
+        android:pathData="M40,76 L68,76" />
+    <path android:strokeColor="#66FFF4E0" android:strokeWidth="3" android:strokeLineCap="round"
+        android:pathData="M47,83 L61,83" />
 </vector>
