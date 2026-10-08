@@ -10,16 +10,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          mkdir out
+          mkdir -p out/p
           UA="Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36"
-          curl -sL -A "$UA" "https://www.vaticannews.va/ko/vatican-city/news/2025-11/gmg-seoul-2027.html" -o out/wyd_vn.html || true
-          curl -sL -A "$UA" "https://m.catholic.or.kr/web/prayer/" -o out/prayer_list.html || true
-          curl -sL -A "$UA" "https://m.catholic.or.kr/web/prayer/?flag=3&ingId=179" -o out/prayer_179.html || true
-          for f in 1 2 3; do curl -sL -A "$UA" "https://m.catholic.or.kr/web/prayer/?flag=$f" -o out/prayer_flag$f.html || true; done
-          ls -la out
+          for i in $(seq 1 230); do
+            curl -sL --max-time 20 -A "$UA" "https://m.catholic.or.kr/web/prayer/?flag=3&ingId=$i" -o out/p/$i.html || true
+          done
+          ls out/p | wc -l
       - run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add -f out
-          git commit -m "fetched pages [skip ci]" || true
+          git commit -m "fetched prayers [skip ci]" || true
           git push
