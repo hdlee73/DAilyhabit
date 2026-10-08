@@ -2,7 +2,6 @@ package com.hdlee73.dailyhabit.ui
 
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,13 +21,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -58,16 +55,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hdlee73.dailyhabit.data.AppDatabase
 import com.hdlee73.dailyhabit.data.CalendarRepository
-import com.hdlee73.dailyhabit.data.FamilyPrayers
 import com.hdlee73.dailyhabit.data.Gospel
 import com.hdlee73.dailyhabit.data.GospelRepository
-import com.hdlee73.dailyhabit.notify.DailyWorker
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun TodayScreen(onNavigate: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun TodayScreen(onNavigate: (Section) -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val repo = remember { GospelRepository(context) }
     val today = remember { LocalDate.now() }
@@ -98,8 +93,6 @@ fun TodayScreen(onNavigate: (Int) -> Unit, modifier: Modifier = Modifier) {
     val todayRoutines = routines.filter { it.activeOn(today.dayOfWeek) }
     val doneRoutines = todayRoutines.count { r -> checks.any { it.routineId == r.id && it.epochDay == today.toEpochDay() } }
     val todayTodos = todos.count { !it.done && it.dueEpochDay != null && it.dueEpochDay <= today.toEpochDay() }
-
-    val prayer = remember(today) { FamilyPrayers.forDate(today) }
 
     Column(
         modifier
@@ -136,16 +129,6 @@ fun TodayScreen(onNavigate: (Int) -> Unit, modifier: Modifier = Modifier) {
                             color = Color.White,
                         )
                     }
-                    IconButton(
-                        onClick = {
-                            DailyWorker.enqueue(context)
-                            Toast.makeText(context, "아침 알림을 미리 보내드릴게요", Toast.LENGTH_SHORT).show()
-                        },
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.White.copy(alpha = 0.16f),
-                            contentColor = Color.White,
-                        ),
-                    ) { Icon(Icons.Filled.NotificationsActive, contentDescription = "아침 알림 미리보기") }
                 }
                 gospel?.liturgicalDay?.takeIf { it.isNotBlank() }?.let { day ->
                     Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -160,13 +143,13 @@ fun TodayScreen(onNavigate: (Int) -> Unit, modifier: Modifier = Modifier) {
                 }
                 Spacer(Modifier.height(18.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SummaryChip("일정", eventCount?.let { "${it}개" } ?: "-", Modifier.weight(1f)) { onNavigate(1) }
-                    SummaryChip("할 일", "${todayTodos}개", Modifier.weight(1f)) { onNavigate(2) }
+                    SummaryChip("일정", eventCount?.let { "${it}개" } ?: "-", Modifier.weight(1f)) { onNavigate(Section.SCHEDULE) }
+                    SummaryChip("할 일", "${todayTodos}개", Modifier.weight(1f)) { onNavigate(Section.TODO) }
                     SummaryChip(
                         "루틴",
                         if (todayRoutines.isEmpty()) "-" else "$doneRoutines/${todayRoutines.size}",
                         Modifier.weight(1f),
-                    ) { onNavigate(3) }
+                    ) { onNavigate(Section.ROUTINE) }
                 }
             }
         }
@@ -208,20 +191,6 @@ fun TodayScreen(onNavigate: (Int) -> Unit, modifier: Modifier = Modifier) {
             }
         }
 
-        // ── 가정을 위한 기도
-        SoftCard(color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)) {
-            SectionLabel("가정을 위한 기도", color = MaterialTheme.colorScheme.secondary)
-            Text(
-                prayer.title,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
-            )
-            Text(prayer.text, style = ScriptureStyle, color = MaterialTheme.colorScheme.onSurface)
-            HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f))
-            Text(FamilyPrayers.holyFamily.title, style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.secondary)
-            Text(FamilyPrayers.holyFamilyText(), style = ScriptureStyle, modifier = Modifier.padding(top = 6.dp))
-        }
     }
 }
 

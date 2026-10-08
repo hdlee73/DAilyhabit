@@ -22,6 +22,7 @@ import com.hdlee73.dailyhabit.data.Todo
 import com.hdlee73.dailyhabit.ui.formatEventTime
 import com.hdlee73.dailyhabit.ui.formatKoreanDate
 import com.hdlee73.dailyhabit.ui.formatMinute
+import com.hdlee73.dailyhabit.ui.Section
 import java.time.LocalDate
 
 object Notifier {
@@ -38,7 +39,7 @@ object Notifier {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannels(
             listOf(
-                NotificationChannel(CHANNEL_DAILY, "아침 9시 알림", NotificationManager.IMPORTANCE_HIGH).apply {
+                NotificationChannel(CHANNEL_DAILY, "아침 알림", NotificationManager.IMPORTANCE_HIGH).apply {
                     description = "오늘의 복음, 가정을 위한 기도, 오늘 일정"
                 },
                 NotificationChannel(CHANNEL_ROUTINE, "루틴 알림", NotificationManager.IMPORTANCE_HIGH).apply {
@@ -104,7 +105,7 @@ object Notifier {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("${routine.emoji} ${routine.title}")
             .setContentText("오늘의 루틴을 할 시간이에요 · ${formatMinute(routine.reminderMinute)}")
-            .setContentIntent(openApp(context, 3, notifyId(Reminders.TYPE_ROUTINE, routine.id)))
+            .setContentIntent(openApp(context, Section.ROUTINE.ordinal, notifyId(Reminders.TYPE_ROUTINE, routine.id)))
             .addAction(doneAction(context, Reminders.TYPE_ROUTINE, routine.id))
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -124,7 +125,7 @@ object Notifier {
             .setContentTitle(todo.title)
             .setContentText(text.lineSequence().first())
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(openApp(context, 2, notifyId(Reminders.TYPE_TODO, todo.id)))
+            .setContentIntent(openApp(context, Section.TODO.ordinal, notifyId(Reminders.TYPE_TODO, todo.id)))
             .addAction(doneAction(context, Reminders.TYPE_TODO, todo.id))
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -183,7 +184,7 @@ object Notifier {
             .setContentTitle("좋은 아침이에요 · ${formatKoreanDate(date)}")
             .setContentText(summary)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(openApp(context, 0, 0))
+            .setContentIntent(openApp(context, Section.GOSPEL.ordinal, 0))
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

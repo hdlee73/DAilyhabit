@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -78,7 +79,7 @@ private val EMOJIS = listOf(
 )
 
 @Composable
-fun RoutineScreen(modifier: Modifier = Modifier) {
+fun RoutineScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val dao = remember { AppDatabase.get(context).routineDao() }
     val routines by dao.observeActive().collectAsState(initial = emptyList())
@@ -88,6 +89,14 @@ fun RoutineScreen(modifier: Modifier = Modifier) {
     var editing by remember { mutableStateOf<Routine?>(null) }
     var creating by remember { mutableStateOf(false) }
     val today = LocalDate.now()
+
+    LaunchedEffect(openEditor) {
+        if (openEditor) {
+            tab = 0
+            creating = true
+            onEditorOpened()
+        }
+    }
 
     val checkMap: Map<Long, Set<Long>> = remember(checks) {
         checks.groupBy(RoutineCheck::routineId).mapValues { (_, v) -> v.map { it.epochDay }.toSet() }

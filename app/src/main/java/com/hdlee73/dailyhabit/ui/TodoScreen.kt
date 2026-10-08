@@ -54,6 +54,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -88,7 +89,7 @@ fun priorityColor(p: Priority): Color = when (p) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TodoScreen(modifier: Modifier = Modifier) {
+fun TodoScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val dao = remember { AppDatabase.get(context).todoDao() }
     val todos by dao.observeAll().collectAsState(initial = emptyList())
@@ -100,6 +101,13 @@ fun TodoScreen(modifier: Modifier = Modifier) {
     var editing by remember { mutableStateOf<Todo?>(null) }
     var creating by remember { mutableStateOf(false) }
     val today = LocalDate.now()
+
+    LaunchedEffect(openEditor) {
+        if (openEditor) {
+            creating = true
+            onEditorOpened()
+        }
+    }
     val t = today.toEpochDay()
 
     fun quickAdd() {
