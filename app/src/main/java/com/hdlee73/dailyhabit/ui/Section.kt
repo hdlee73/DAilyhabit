@@ -12,6 +12,10 @@ enum class Section(val label: String) {
     SETTINGS("설정"),
     QUOTE("오늘의 명언"),
     RESTAURANT("맛집"),
+    JOURNAL("한 줄 일기"),
+    SHOPPING("장보기"),
+    BOOKS("독서"),
+    ABOUT("앱 정보"),
     ;
 
     companion object {
@@ -22,9 +26,9 @@ enum class Section(val label: String) {
         val primary: List<Section> get() = if (BuildConfig.CATHOLIC) listOf(GOSPEL, PRAYER) else listOf(QUOTE)
 
         /** '하루 관리' 묶음 */
-        val daily = listOf(SCHEDULE, TODO, ROUTINE, RESTAURANT)
+        val daily = listOf(SCHEDULE, TODO, ROUTINE, JOURNAL, SHOPPING, BOOKS, RESTAURANT)
 
-        fun available(): List<Section> = primary + daily + SETTINGS
+        fun available(): List<Section> = primary + daily + SETTINGS + ABOUT
 
         fun fromIndex(i: Int): Section {
             val s = entries.getOrElse(i) { HOME }

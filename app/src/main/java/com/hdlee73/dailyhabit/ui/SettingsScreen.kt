@@ -8,6 +8,8 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,7 +25,9 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,16 +49,54 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.hdlee73.dailyhabit.data.AppSettings
+import com.hdlee73.dailyhabit.data.Backup
+import com.hdlee73.dailyhabit.data.Updater
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.util.Date
+import java.util.Locale
 import com.hdlee73.dailyhabit.notify.DailyScheduler
 import com.hdlee73.dailyhabit.notify.DailyWorker
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
+fun SettingsScreen(onNavigate: (Section) -> Unit = {}, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val settings = remember { AppSettings(context) }
     var enabled by remember { mutableStateOf(settings.dailyEnabled) }
     var minute by remember { mutableIntStateOf(settings.dailyMinute) }
     var pickTime by remember { mutableStateOf(false) }
+
+    // 백업 / 복원
+    val scope = rememberCoroutineScope()
+    var lastBackup by remember { mutableStateOf(settings.lastBackup) }
+    var pendingRestore by remember { mutableStateOf<String?>(null) }
+    var restoreMessage by remember { mutableStateOf<String?>(null) }
+    val saveBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) scope.launch {
+            val ok = runCatching {
+                val json = Backup.export(context)
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                        ?: error("열 수 없는 위치")
+                }
+            }.isSuccess
+            lastBackup = settings.lastBackup
+            Toast.makeText(context, if (ok) "백업 파일을 저장했어요" else "백업 파일을 저장하지 못했어요", Toast.LENGTH_LONG).show()
+        }
+    }
+    val openBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: error("열 수 없는 파일")
+                }
+            }.onSuccess { pendingRestore = it }
+                .onFailure { Toast.makeText(context, "파일을 읽지 못했어요", Toast.LENGTH_LONG).show() }
+        }
+    }
 
     // 권한 상태 (설정 앱에서 돌아오면 다시 확인)
     var notifOk by remember { mutableStateOf(true) }
@@ -145,22 +188,72 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         }
 
         SoftCard {
-            SectionLabel("앱 정보")
-            val version = remember {
-                runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "-"
-            }
-            Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(if (com.hdlee73.dailyhabit.BuildConfig.CATHOLIC) "DailyHabit 천주교인용" else "DailyHabit", Modifier.weight(1f).padding(start = 14.dp), style = MaterialTheme.typography.bodyLarge)
-                Text("v$version", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            SectionLabel("백업과 복원")
             Text(
-                (if (com.hdlee73.dailyhabit.BuildConfig.CATHOLIC) "복음: 한국천주교주교회의 매일미사 · 기도문: 가톨릭 기도서 · " else "") + "일정: 휴대폰에 동기화된 구글 캘린더 · 할 일, 루틴, 맛집은 이 휴대폰에만 저장돼요.",
+                "할 일, 루틴, 일기, 장보기, 독서, 맛집 기록을 파일 하나로 저장해요. " +
+                    "폰을 바꾸거나 앱을 다시 설치할 때 이 파일로 되돌릴 수 있어요. 천주교인용과 일반용 사이에서도 옮길 수 있어요.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 10.dp),
             )
+            if (lastBackup > 0) Text(
+                "마지막 백업 ${SimpleDateFormat("yyyy년 M월 d일 HH:mm", Locale.KOREAN).format(Date(lastBackup))}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            FilledTonalButton(
+                onClick = { saveBackup.launch("DailyHabit-backup-${LocalDate.now()}.json") },
+                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+            ) { Text("백업 파일 만들기") }
+            OutlinedButton(
+                onClick = { openBackup.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("백업 파일에서 복원") }
         }
+
+        SoftCard(onClick = { onNavigate(Section.ABOUT) }) {
+            val version = remember {
+                runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "-"
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    Text("앱 정보 · 업데이트", style = MaterialTheme.typography.bodyLarge)
+                    Text("v$version", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (Updater.hasUpdate) Pill("NEW", MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+
+    pendingRestore?.let { json ->
+        AlertDialog(
+            onDismissRequest = { pendingRestore = null },
+            title = { Text("백업에서 복원할까요?") },
+            text = { Text("지금 저장된 할 일, 루틴, 일기, 장보기, 독서, 맛집 기록이 모두 백업 파일의 내용으로 바뀌어요.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingRestore = null
+                    scope.launch {
+                        runCatching { Backup.restore(context, json) }
+                            .onSuccess { restoreMessage = "복원했어요\n${it.text}" }
+                            .onFailure {
+                                restoreMessage = (it as? IllegalArgumentException)?.message
+                                    ?: "백업 파일을 읽지 못해서 아무것도 바꾸지 않았어요."
+                            }
+                    }
+                }) { Text("복원", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { pendingRestore = null }) { Text("취소") } },
+        )
+    }
+    restoreMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { restoreMessage = null },
+            text = { Text(msg) },
+            confirmButton = { TextButton(onClick = { restoreMessage = null }) { Text("확인") } },
+        )
     }
 
     if (pickTime) {

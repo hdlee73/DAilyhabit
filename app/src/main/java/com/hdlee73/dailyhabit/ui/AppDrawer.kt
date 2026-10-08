@@ -23,7 +23,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.RestaurantMenu
@@ -61,6 +65,10 @@ fun Section.icon(): ImageVector = when (this) {
     Section.SETTINGS -> Icons.Outlined.Settings
     Section.QUOTE -> Icons.Outlined.FormatQuote
     Section.RESTAURANT -> Icons.Outlined.RestaurantMenu
+    Section.JOURNAL -> Icons.Outlined.EditNote
+    Section.SHOPPING -> Icons.Outlined.ShoppingCart
+    Section.BOOKS -> Icons.Outlined.AutoStories
+    Section.ABOUT -> Icons.Outlined.Info
 }
 
 private val AvatarColor = Color(0xFF7B6CF0)
@@ -108,6 +116,8 @@ fun AppDrawer(
                 modifier = Modifier.padding(start = 12.dp, bottom = 6.dp),
             )
             Section.daily.forEach { DrawerItem(it, current == it, badges[it], onSelect) }
+            HorizontalDivider(Modifier.padding(horizontal = 10.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            DrawerItem(Section.ABOUT, current == Section.ABOUT, badges[Section.ABOUT], onSelect)
         }
 
         // 아래: 아바타 + 검은 알약 버튼
@@ -131,7 +141,10 @@ fun AppDrawer(
                         modifier = Modifier.padding(start = 6.dp))
                 }
                 DropdownMenu(expanded = newMenu, onDismissRequest = { newMenu = false }) {
-                    listOf(Section.TODO to "할 일", Section.ROUTINE to "루틴", Section.RESTAURANT to "맛집").forEach { (s, label) ->
+                    listOf(
+                        Section.TODO to "할 일", Section.ROUTINE to "루틴", Section.JOURNAL to "한 줄 일기",
+                        Section.SHOPPING to "장보기 품목", Section.BOOKS to "책", Section.RESTAURANT to "맛집",
+                    ).forEach { (s, label) ->
                         DropdownMenuItem(
                             text = { Text(label) },
                             leadingIcon = { Icon(s.icon(), null) },

@@ -51,7 +51,12 @@ import androidx.compose.ui.unit.dp
 import com.hdlee73.dailyhabit.data.AppDatabase
 import com.hdlee73.dailyhabit.notify.DailyScheduler
 import com.hdlee73.dailyhabit.notify.Notifier
+import com.hdlee73.dailyhabit.data.Updater
+import com.hdlee73.dailyhabit.ui.AboutScreen
 import com.hdlee73.dailyhabit.ui.AppDrawer
+import com.hdlee73.dailyhabit.ui.BooksScreen
+import com.hdlee73.dailyhabit.ui.JournalScreen
+import com.hdlee73.dailyhabit.ui.ShoppingScreen
 import com.hdlee73.dailyhabit.ui.DailyHabitTheme
 import com.hdlee73.dailyhabit.ui.PrayerScreen
 import com.hdlee73.dailyhabit.ui.QuoteScreen
@@ -102,6 +107,9 @@ class MainActivity : ComponentActivity() {
                 val routines by db.routineDao().observeActive().collectAsState(initial = emptyList())
                 val checks by db.routineDao().observeChecks().collectAsState(initial = emptyList())
                 val places by db.restaurantDao().observeAll().collectAsState(initial = emptyList())
+                val diary by db.diaryDao().observeAll().collectAsState(initial = emptyList())
+                val shopping by db.shoppingDao().observeAll().collectAsState(initial = emptyList())
+                val books by db.bookDao().observeBooks().collectAsState(initial = emptyList())
                 val today = LocalDate.now()
                 val todaysRoutines = routines.filter { it.activeOn(today.dayOfWeek) }
                 val badges = mapOf(
@@ -109,7 +117,14 @@ class MainActivity : ComponentActivity() {
                     Section.ROUTINE to if (todaysRoutines.isEmpty()) "" else
                         "${todaysRoutines.count { r -> checks.any { it.routineId == r.id && it.epochDay == today.toEpochDay() } }}/${todaysRoutines.size}",
                     Section.RESTAURANT to places.size.takeIf { it > 0 }?.toString().orEmpty(),
+                    Section.JOURNAL to if (diary.any { it.epochDay == today.toEpochDay() }) "✓" else "",
+                    Section.SHOPPING to shopping.count { !it.checked }.takeIf { it > 0 }?.toString().orEmpty(),
+                    Section.BOOKS to books.count { it.status == 0 }.takeIf { it > 0 }?.toString().orEmpty(),
+                    Section.ABOUT to if (Updater.hasUpdate) "NEW" else "",
                 )
+
+                // 앱을 열면 새 버전이 있는지 조용히 확인한다
+                androidx.compose.runtime.LaunchedEffect(Unit) { Updater.autoCheck(applicationContext) }
 
                 fun go(s: Section) {
                     sectionIndex = s.ordinal
@@ -171,7 +186,20 @@ class MainActivity : ComponentActivity() {
                                             openEditor = createIn == Section.RESTAURANT,
                                             onEditorOpened = { createIn = null },
                                         )
-                                        Section.SETTINGS -> SettingsScreen()
+                                        Section.JOURNAL -> JournalScreen(
+                                            openEditor = createIn == Section.JOURNAL,
+                                            onEditorOpened = { createIn = null },
+                                        )
+                                        Section.SHOPPING -> ShoppingScreen(
+                                            openEditor = createIn == Section.SHOPPING,
+                                            onEditorOpened = { createIn = null },
+                                        )
+                                        Section.BOOKS -> BooksScreen(
+                                            openEditor = createIn == Section.BOOKS,
+                                            onEditorOpened = { createIn = null },
+                                        )
+                                        Section.ABOUT -> AboutScreen()
+                                        Section.SETTINGS -> SettingsScreen(onNavigate = ::go)
                                     }
                                 }
                             }

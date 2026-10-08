@@ -70,6 +70,15 @@ interface TodoDao {
 
     @Query("DELETE FROM todos WHERE done = 1")
     suspend fun clearDone()
+
+    @Query("SELECT * FROM todos")
+    suspend fun all(): List<Todo>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(list: List<Todo>)
+
+    @Query("DELETE FROM todos")
+    suspend fun clear()
 }
 
 // ───────────── 매일 루틴 ─────────────
@@ -148,6 +157,24 @@ interface RoutineDao {
         deleteRoutine(id)
     }
 
+    @Query("SELECT * FROM routines")
+    suspend fun allRoutines(): List<Routine>
+
+    @Query("SELECT * FROM routine_checks")
+    suspend fun allChecks(): List<RoutineCheck>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRoutines(list: List<Routine>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertChecks(list: List<RoutineCheck>)
+
+    @Query("DELETE FROM routines")
+    suspend fun clearRoutines()
+
+    @Query("DELETE FROM routine_checks")
+    suspend fun clearAllChecks()
+
     @Transaction
     suspend fun toggle(routineId: Long, epochDay: Long) {
         if (isChecked(routineId, epochDay) > 0) uncheck(routineId, epochDay)
@@ -204,15 +231,208 @@ interface RestaurantDao {
 
     @Delete
     suspend fun delete(r: Restaurant)
+
+    @Query("SELECT * FROM restaurants")
+    suspend fun all(): List<Restaurant>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(list: List<Restaurant>)
+
+    @Query("DELETE FROM restaurants")
+    suspend fun clear()
+}
+
+// ───────────── 한 줄 일기 ─────────────
+
+/** 기분 이모지. DiaryEntry.mood는 (목록 위치 + 1), 0이면 선택 안 함 */
+val DIARY_MOODS = listOf("😊", "🥰", "😌", "😐", "😔", "😤")
+
+@Entity(tableName = "diary_entries")
+data class DiaryEntry(
+    /** 날짜마다 하나 */
+    @PrimaryKey val epochDay: Long,
+    val text: String,
+    val mood: Int = 0,
+    val updatedAt: Long = System.currentTimeMillis(),
+)
+
+@Dao
+interface DiaryDao {
+    @Query("SELECT * FROM diary_entries ORDER BY epochDay DESC")
+    fun observeAll(): Flow<List<DiaryEntry>>
+
+    @Query("SELECT * FROM diary_entries")
+    suspend fun all(): List<DiaryEntry>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(e: DiaryEntry)
+
+    @Query("DELETE FROM diary_entries WHERE epochDay = :epochDay")
+    suspend fun delete(epochDay: Long)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(list: List<DiaryEntry>)
+
+    @Query("DELETE FROM diary_entries")
+    suspend fun clear()
+}
+
+// ───────────── 장보기 ─────────────
+
+val SHOPPING_CATEGORIES = listOf("채소·과일", "정육·수산", "유제품·달걀", "식료품", "간식·음료", "생활용품", "기타")
+
+@Entity(tableName = "shopping_items")
+data class ShoppingItem(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    /** 수량·메모 (예: 2개, 500g) */
+    val qty: String = "",
+    val category: String = "기타",
+    val checked: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis(),
+    val checkedAt: Long? = null,
+)
+
+@Dao
+interface ShoppingDao {
+    @Query("SELECT * FROM shopping_items ORDER BY checked ASC, createdAt DESC")
+    fun observeAll(): Flow<List<ShoppingItem>>
+
+    @Query("SELECT * FROM shopping_items")
+    suspend fun all(): List<ShoppingItem>
+
+    @Insert
+    suspend fun insert(item: ShoppingItem): Long
+
+    @Update
+    suspend fun update(item: ShoppingItem)
+
+    @Delete
+    suspend fun delete(item: ShoppingItem)
+
+    @Query("DELETE FROM shopping_items WHERE checked = 1")
+    suspend fun clearChecked()
+
+    @Query("UPDATE shopping_items SET checked = 0, checkedAt = NULL")
+    suspend fun uncheckAll()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(list: List<ShoppingItem>)
+
+    @Query("DELETE FROM shopping_items")
+    suspend fun clear()
+}
+
+// ───────────── 독서 ─────────────
+
+enum class BookStatus(val label: String) { READING("읽는 중"), WANT("읽고 싶은"), DONE("다 읽은") }
+
+@Entity(tableName = "books")
+data class Book(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val author: String = "",
+    /** 0이면 모름 */
+    val totalPages: Int = 0,
+    val currentPage: Int = 0,
+    /** BookStatus 순서: 0 읽는 중, 1 읽고 싶은, 2 다 읽은 */
+    val status: Int = 1,
+    /** 0이면 평가 안 함, 1~5 */
+    val rating: Int = 0,
+    val startEpochDay: Long? = null,
+    val endEpochDay: Long? = null,
+    /** 다 읽은 뒤 남기는 한 줄 소감 */
+    val review: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+) {
+    val statusEnum: BookStatus get() = BookStatus.entries.getOrElse(status) { BookStatus.WANT }
+    val progress: Float
+        get() = when {
+            statusEnum == BookStatus.DONE -> 1f
+            totalPages > 0 -> (currentPage.toFloat() / totalPages).coerceIn(0f, 1f)
+            else -> 0f
+        }
+}
+
+/** 책 속 밑줄 문장·메모 */
+@Entity(tableName = "book_notes")
+data class BookNote(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val bookId: Long,
+    val text: String,
+    /** 0이면 쪽수 없음 */
+    val page: Int = 0,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Dao
+interface BookDao {
+    @Query("SELECT * FROM books ORDER BY createdAt DESC")
+    fun observeBooks(): Flow<List<Book>>
+
+    @Query("SELECT * FROM book_notes ORDER BY createdAt DESC")
+    fun observeNotes(): Flow<List<BookNote>>
+
+    @Query("SELECT * FROM books")
+    suspend fun allBooks(): List<Book>
+
+    @Query("SELECT * FROM book_notes")
+    suspend fun allNotes(): List<BookNote>
+
+    @Insert
+    suspend fun insert(book: Book): Long
+
+    @Update
+    suspend fun update(book: Book)
+
+    @Query("DELETE FROM books WHERE id = :id")
+    suspend fun deleteBook(id: Long)
+
+    @Query("DELETE FROM book_notes WHERE bookId = :bookId")
+    suspend fun deleteNotesOf(bookId: Long)
+
+    @Transaction
+    suspend fun delete(id: Long) {
+        deleteNotesOf(id)
+        deleteBook(id)
+    }
+
+    @Insert
+    suspend fun insertNote(note: BookNote): Long
+
+    @Query("DELETE FROM book_notes WHERE id = :id")
+    suspend fun deleteNote(id: Long)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBooks(list: List<Book>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNotes(list: List<BookNote>)
+
+    @Query("DELETE FROM books")
+    suspend fun clearBooks()
+
+    @Query("DELETE FROM book_notes")
+    suspend fun clearNotes()
 }
 
 // ───────────── DB ─────────────
 
-@Database(entities = [Todo::class, Routine::class, RoutineCheck::class, Restaurant::class], version = 3, exportSchema = false)
+@Database(
+    entities = [
+        Todo::class, Routine::class, RoutineCheck::class, Restaurant::class,
+        DiaryEntry::class, ShoppingItem::class, Book::class, BookNote::class,
+    ],
+    version = 4,
+    exportSchema = false,
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun todoDao(): TodoDao
     abstract fun routineDao(): RoutineDao
     abstract fun restaurantDao(): RestaurantDao
+    abstract fun diaryDao(): DiaryDao
+    abstract fun shoppingDao(): ShoppingDao
+    abstract fun bookDao(): BookDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -250,9 +470,33 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `diary_entries` (`epochDay` INTEGER NOT NULL, `text` TEXT NOT NULL, " +
+                        "`mood` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`epochDay`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `shopping_items` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, `qty` TEXT NOT NULL, `category` TEXT NOT NULL, `checked` INTEGER NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, `checkedAt` INTEGER)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `books` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`title` TEXT NOT NULL, `author` TEXT NOT NULL, `totalPages` INTEGER NOT NULL, `currentPage` INTEGER NOT NULL, " +
+                        "`status` INTEGER NOT NULL, `rating` INTEGER NOT NULL, `startEpochDay` INTEGER, `endEpochDay` INTEGER, " +
+                        "`review` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `book_notes` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`bookId` INTEGER NOT NULL, `text` TEXT NOT NULL, `page` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "dailyhabit.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build().also { instance = it }
         }
     }
