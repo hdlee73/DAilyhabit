@@ -33,6 +33,24 @@ android {
         }
     }
 
+    // 천주교인용(복음·기도) / 일반용(오늘의 명언) 두 가지 버전
+    flavorDimensions += "edition"
+    productFlavors {
+        create("catholic") {
+            dimension = "edition"
+            // 기존 설치본이 그대로 업데이트되도록 원래 패키지 이름 유지
+            applicationId = "com.hdlee73.dailyhabit"
+            buildConfigField("boolean", "CATHOLIC", "true")
+            resValue("string", "app_name", "DailyHabit 천주교인용")
+        }
+        create("general") {
+            dimension = "edition"
+            applicationId = "com.hdlee73.dailyhabit.general"
+            buildConfigField("boolean", "CATHOLIC", "false")
+            resValue("string", "app_name", "DailyHabit")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -42,6 +60,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

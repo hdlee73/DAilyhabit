@@ -41,6 +41,7 @@ fun SoftCard(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.surfaceContainerLowest,
     onClick: (() -> Unit)? = null,
+    bordered: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = MaterialTheme.shapes.large
@@ -53,7 +54,7 @@ fun SoftCard(
         color = color,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+        border = if (bordered) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
     ) {
         Column(Modifier.padding(20.dp), content = content)
     }
@@ -192,5 +193,37 @@ fun SegmentedTabs(options: List<String>, selected: Int, onSelect: (Int) -> Unit,
                 )
             }
         }
+    }
+}
+
+/** 오늘 일정·할 일·루틴 요약 (회색 말풍선 느낌) */
+@Composable
+fun TodaySummaryRow(
+    eventCount: Int?,
+    todoCount: Int,
+    routineDone: Int,
+    routineTotal: Int,
+    onNavigate: (Section) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SummaryBubble("일정", eventCount?.let { "${it}개" } ?: "-", Modifier.weight(1f)) { onNavigate(Section.SCHEDULE) }
+        SummaryBubble("할 일", "${todoCount}개", Modifier.weight(1f)) { onNavigate(Section.TODO) }
+        SummaryBubble("루틴", if (routineTotal == 0) "-" else "$routineDone/$routineTotal", Modifier.weight(1f)) {
+            onNavigate(Section.ROUTINE)
+        }
+    }
+}
+
+@Composable
+private fun SummaryBubble(label: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
     }
 }

@@ -155,12 +155,64 @@ interface RoutineDao {
     }
 }
 
+// ───────────── 맛집 ─────────────
+
+val RESTAURANT_CATEGORIES = listOf("한식", "중식", "일식", "양식", "아시안", "분식", "고기", "해산물", "카페·디저트", "술집", "기타")
+val RESTAURANT_TAGS = listOf("가족", "데이트", "친구", "혼밥", "회식", "가성비", "분위기", "주차 가능", "아이 동반", "포장·배달")
+
+@Entity(tableName = "restaurants")
+data class Restaurant(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val category: String = "",
+    /** 주요 메뉴 (쉼표로 구분) */
+    val menu: String = "",
+    /** 위치 (주소나 동네) */
+    val address: String = "",
+    /** 지도·블로그 링크 */
+    val link: String = "",
+    /** 0이면 평가 안 함, 1~5 */
+    val rating: Int = 0,
+    /** 한 줄 평 */
+    val comment: String = "",
+    /** 자세한 메모 */
+    val memo: String = "",
+    /** 쉼표로 구분한 태그 */
+    val tags: String = "",
+    /** 0 미정, 1 ₩, 2 ₩₩, 3 ₩₩₩ */
+    val price: Int = 0,
+    /** true면 '가보고 싶은 곳' */
+    val wish: Boolean = false,
+    val revisit: Boolean = false,
+    val visitCount: Int = 0,
+    val lastVisitEpochDay: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+) {
+    val tagList: List<String> get() = tags.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+}
+
+@Dao
+interface RestaurantDao {
+    @Query("SELECT * FROM restaurants ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<Restaurant>>
+
+    @Insert
+    suspend fun insert(r: Restaurant): Long
+
+    @Update
+    suspend fun update(r: Restaurant)
+
+    @Delete
+    suspend fun delete(r: Restaurant)
+}
+
 // ───────────── DB ─────────────
 
-@Database(entities = [Todo::class, Routine::class, RoutineCheck::class], version = 2, exportSchema = false)
+@Database(entities = [Todo::class, Routine::class, RoutineCheck::class, Restaurant::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun todoDao(): TodoDao
     abstract fun routineDao(): RoutineDao
+    abstract fun restaurantDao(): RestaurantDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -186,9 +238,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `restaurants` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, `category` TEXT NOT NULL, `menu` TEXT NOT NULL, `address` TEXT NOT NULL, " +
+                        "`link` TEXT NOT NULL, `rating` INTEGER NOT NULL, `comment` TEXT NOT NULL, `memo` TEXT NOT NULL, " +
+                        "`tags` TEXT NOT NULL, `price` INTEGER NOT NULL, `wish` INTEGER NOT NULL, `revisit` INTEGER NOT NULL, " +
+                        "`visitCount` INTEGER NOT NULL, `lastVisitEpochDay` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "dailyhabit.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build().also { instance = it }
         }
     }

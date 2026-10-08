@@ -12,7 +12,9 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.hdlee73.dailyhabit.BuildConfig
 import com.hdlee73.dailyhabit.MainActivity
+import com.hdlee73.dailyhabit.data.Quotes
 import com.hdlee73.dailyhabit.R
 import com.hdlee73.dailyhabit.data.CalendarEvent
 import com.hdlee73.dailyhabit.data.FamilyPrayers
@@ -144,18 +146,26 @@ object Notifier {
         routines: List<Routine> = emptyList(),
     ) {
         val prayer = FamilyPrayers.forDate(date)
+        val quote = Quotes.forDate(date)
         val text = buildString {
-            append("✠ 오늘의 복음")
-            if (gospel != null) {
-                append(" · ").append(gospel.reference).append('\n')
-                if (gospel.title.isNotBlank()) append("<").append(gospel.title).append(">\n")
-                val body = gospel.body.replace('\n', ' ')
-                append(if (body.length > 300) body.take(300) + "…" else body)
+            if (BuildConfig.CATHOLIC) {
+                append("✠ 오늘의 복음")
+                if (gospel != null) {
+                    append(" · ").append(gospel.reference).append('\n')
+                    if (gospel.title.isNotBlank()) append("<").append(gospel.title).append(">\n")
+                    val body = gospel.body.replace('\n', ' ')
+                    append(if (body.length > 300) body.take(300) + "…" else body)
+                } else {
+                    append("\n복음을 불러오지 못했어요. 앱에서 다시 시도해 주세요.")
+                }
+                append("\n\n🙏 ").append(prayer.title).append('\n')
+                append(prayer.text)
             } else {
-                append("\n복음을 불러오지 못했어요. 앱에서 다시 시도해 주세요.")
+                append("💬 오늘의 명언\n")
+                append(quote.ko).append('\n')
+                append(quote.en).append('\n')
+                append("— ").append(quote.author)
             }
-            append("\n\n🙏 ").append(prayer.title).append('\n')
-            append(prayer.text)
             append("\n\n📅 오늘 일정\n")
             when {
                 !calendarAllowed -> append("캘린더 권한이 필요해요. 앱을 열어 허용해 주세요.")
@@ -173,7 +183,7 @@ object Notifier {
         }.trim()
 
         val summary = buildString {
-            append(gospel?.reference ?: "오늘의 복음")
+            append(if (BuildConfig.CATHOLIC) gospel?.reference ?: "오늘의 복음" else quote.ko.take(24))
             append(" · 일정 ")
             append(if (calendarAllowed) "${events.size}개" else "-")
             if (routines.isNotEmpty()) append(" · 루틴 ${routines.size}개")
@@ -184,7 +194,7 @@ object Notifier {
             .setContentTitle("좋은 아침이에요 · ${formatKoreanDate(date)}")
             .setContentText(summary)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(openApp(context, Section.GOSPEL.ordinal, 0))
+            .setContentIntent(openApp(context, Section.HOME.ordinal, 0))
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

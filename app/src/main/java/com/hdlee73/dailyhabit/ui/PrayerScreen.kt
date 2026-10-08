@@ -111,7 +111,7 @@ private fun PrayerList(onOpen: (PrayerItem) -> Unit, modifier: Modifier = Modifi
                                 Text(p.title, style = MaterialTheme.typography.bodyLarge)
                                 val preview = if (p.id == Prayers.ROSARY_ID) "오늘은 ${mystery.name}"
                                 else p.text.trimIndent().lineSequence().firstOrNull { it.isNotBlank() && !it.startsWith("[") }
-                                    ?.removePrefix("◎ ")?.removePrefix("● ").orEmpty()
+                                    ?.trimStart('◎', '●', '○', '╋', '†', ' ', '(').orEmpty()
                                 Text(preview, style = MaterialTheme.typography.bodySmall, maxLines = 1,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -175,15 +175,15 @@ private fun PrayerText(text: String, style: TextStyle) {
         text.lines().forEachIndexed { i, raw ->
             if (i > 0) append('\n')
             when {
-                raw.startsWith("◎") -> {
+                raw.startsWith("╋") || raw.startsWith("○") || raw.startsWith("†") -> {
                     responding = false
-                    withStyle(SpanStyle(color = lead, fontWeight = FontWeight.Bold)) { append("◎ ") }
-                    append(raw.removePrefix("◎").trimStart())
+                    withStyle(SpanStyle(color = lead, fontWeight = FontWeight.Bold)) { append(raw.take(1) + " ") }
+                    append(raw.drop(1).trimStart())
                 }
-                raw.startsWith("●") -> {
+                raw.startsWith("●") || raw.startsWith("◎") -> {
                     responding = true
-                    withStyle(SpanStyle(color = resp, fontWeight = FontWeight.Bold)) { append("● ") }
-                    withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(raw.removePrefix("●").trimStart()) }
+                    withStyle(SpanStyle(color = resp, fontWeight = FontWeight.Bold)) { append(raw.take(1) + " ") }
+                    withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(raw.drop(1).trimStart()) }
                 }
                 raw.startsWith("[") && raw.endsWith("]") -> {
                     responding = false

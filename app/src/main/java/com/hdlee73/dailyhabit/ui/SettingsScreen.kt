@@ -88,7 +88,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 Column(Modifier.weight(1f)) {
                     Text("매일 아침 알림 받기", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "오늘의 복음, 가정을 위한 기도, 오늘 일정과 루틴을 알려드려요",
+                        if (com.hdlee73.dailyhabit.BuildConfig.CATHOLIC) "오늘의 복음, 가정을 위한 기도, 오늘 일정과 루틴을 알려드려요" else "오늘의 명언, 오늘 일정과 루틴, 남은 할 일을 알려드려요",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -116,7 +116,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 )
             }
             Text(
-                "알림을 누르면 오늘의 복음 화면이 열려요.",
+                if (com.hdlee73.dailyhabit.BuildConfig.CATHOLIC) "알림을 누르면 오늘의 복음 화면이 열려요." else "알림을 누르면 오늘의 명언 화면이 열려요.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 10.dp),
@@ -151,11 +151,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             }
             Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("DailyHabit", Modifier.weight(1f).padding(start = 14.dp), style = MaterialTheme.typography.bodyLarge)
+                Text(if (com.hdlee73.dailyhabit.BuildConfig.CATHOLIC) "DailyHabit 천주교인용" else "DailyHabit", Modifier.weight(1f).padding(start = 14.dp), style = MaterialTheme.typography.bodyLarge)
                 Text("v$version", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(
-                "복음: 한국천주교주교회의 매일미사 · 일정: 휴대폰에 동기화된 구글 캘린더 · 할 일과 루틴은 이 휴대폰에만 저장돼요.",
+                (if (com.hdlee73.dailyhabit.BuildConfig.CATHOLIC) "복음: 한국천주교주교회의 매일미사 · 기도문: 가톨릭 기도서 · " else "") + "일정: 휴대폰에 동기화된 구글 캘린더 · 할 일, 루틴, 맛집은 이 휴대폰에만 저장돼요.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 10.dp),

@@ -125,8 +125,9 @@ fun RoutineScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, 
                 onClick = { creating = true },
                 icon = { Icon(Icons.Filled.Add, null) },
                 text = { Text("루틴 추가") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = MaterialTheme.colorScheme.onSurface,
+                contentColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(50),
                 modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
             )
         }

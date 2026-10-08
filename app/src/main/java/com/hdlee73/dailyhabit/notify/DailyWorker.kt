@@ -2,6 +2,7 @@ package com.hdlee73.dailyhabit.notify
 
 import android.content.Context
 import androidx.work.CoroutineWorker
+import com.hdlee73.dailyhabit.BuildConfig
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
@@ -19,7 +20,7 @@ class DailyWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     override suspend fun doWork(): Result {
         val ctx = applicationContext
         val today = LocalDate.now()
-        val gospel = GospelRepository(ctx).get(today).getOrNull()
+        val gospel = if (BuildConfig.CATHOLIC) GospelRepository(ctx).get(today).getOrNull() else null
         val calendar = CalendarRepository(ctx)
         val events = runCatching { calendar.groupByDay(calendar.events(today, 1), today, 1)[today].orEmpty() }
             .getOrDefault(emptyList())

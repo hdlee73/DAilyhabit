@@ -104,55 +104,26 @@ fun TodayScreen(onNavigate: (Section) -> Unit, modifier: Modifier = Modifier) {
     ) {
         // ── 날짜 헤더
         val litColor = liturgicalColor(gospel?.liturgicalDay.orEmpty())
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.extraLarge)
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFF22285A), Color(0xFF5B4A8F), Color(0xFFE59A5F)),
+        Column {
+            Text(
+                "${today.year}년 · ${today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)}",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text("${today.monthValue}월 ${today.dayOfMonth}일", style = MaterialTheme.typography.displaySmall)
+            gospel?.liturgicalDay?.takeIf { it.isNotBlank() }?.let { day ->
+                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(9.dp).clip(CircleShape).background(litColor))
+                    Text(
+                        day.replace(Regex("^\\([^)]*\\)\\s*"), ""),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp),
                     )
-                )
-                .padding(22.dp),
-        ) {
-            Column {
-                Row(verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            "${today.year}년 · ${today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)}",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Color.White.copy(alpha = 0.75f),
-                        )
-                        Text(
-                            "${today.monthValue}월 ${today.dayOfMonth}일",
-                            style = MaterialTheme.typography.displaySmall,
-                            color = Color.White,
-                        )
-                    }
-                }
-                gospel?.liturgicalDay?.takeIf { it.isNotBlank() }?.let { day ->
-                    Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(10.dp).clip(CircleShape).background(litColor))
-                        Text(
-                            day.replace(Regex("^\\([^)]*\\)\\s*"), ""),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.92f),
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                    }
-                }
-                Spacer(Modifier.height(18.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SummaryChip("일정", eventCount?.let { "${it}개" } ?: "-", Modifier.weight(1f)) { onNavigate(Section.SCHEDULE) }
-                    SummaryChip("할 일", "${todayTodos}개", Modifier.weight(1f)) { onNavigate(Section.TODO) }
-                    SummaryChip(
-                        "루틴",
-                        if (todayRoutines.isEmpty()) "-" else "$doneRoutines/${todayRoutines.size}",
-                        Modifier.weight(1f),
-                    ) { onNavigate(Section.ROUTINE) }
                 }
             }
         }
+        TodaySummaryRow(eventCount, todayTodos, doneRoutines, todayRoutines.size, onNavigate)
 
         // ── 오늘의 복음
         SoftCard {
@@ -191,20 +162,6 @@ fun TodayScreen(onNavigate: (Section) -> Unit, modifier: Modifier = Modifier) {
             }
         }
 
-    }
-}
-
-@Composable
-private fun SummaryChip(label: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Column(
-        modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.copy(alpha = 0.14f))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-    ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.75f))
-        Text(value, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold)
     }
 }
 
