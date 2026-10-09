@@ -97,7 +97,7 @@ fun ScheduleScreen(modifier: Modifier = Modifier) {
         onRefresh = { refreshing = true; reload++ },
         modifier = modifier.fillMaxSize(),
     ) {
-        LazyColumn(
+        TopLazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

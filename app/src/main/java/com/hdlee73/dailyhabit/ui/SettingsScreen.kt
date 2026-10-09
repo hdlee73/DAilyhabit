@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -117,12 +118,9 @@ fun SettingsScreen(onNavigate: (Section) -> Unit = {}, modifier: Modifier = Modi
         )
     }
 
-    Column(
-        modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
-            .padding(top = 4.dp, bottom = 32.dp),
+    TopScrollColumn(
+        modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SoftCard {
@@ -131,7 +129,7 @@ fun SettingsScreen(onNavigate: (Section) -> Unit = {}, modifier: Modifier = Modi
                 Column(Modifier.weight(1f)) {
                     Text("매일 아침 알림 받기", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        if (com.hdlee73.dailyhabit.BuildConfig.CATHOLIC) "오늘의 복음, 가정을 위한 기도, 오늘 일정과 루틴을 알려드려요" else "오늘의 명언, 오늘 일정과 루틴, 남은 할 일을 알려드려요",
+                        if (com.hdlee73.dailyhabit.BuildConfig.CATHOLIC) "오늘 복음 요약과 오늘 일정을 알려드려요" else "오늘 일정과 오늘 루틴을 알려드려요",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

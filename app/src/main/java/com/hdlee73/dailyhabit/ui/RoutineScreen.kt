@@ -175,7 +175,7 @@ private fun TodayRoutines(
     val resting = routines - todays.toSet()
     val done = todays.count { today.toEpochDay() in checks[it.id].orEmpty() }
 
-    LazyColumn(
+    TopLazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 100.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -381,7 +381,7 @@ private fun RoutineStatsView(routines: List<Routine>, checks: Map<Long, Set<Long
     val bestStreak = stats.maxOfOrNull { it.bestStreak } ?: 0
     val totalChecks = stats.sumOf { it.totalChecks }
 
-    LazyColumn(
+    TopLazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),

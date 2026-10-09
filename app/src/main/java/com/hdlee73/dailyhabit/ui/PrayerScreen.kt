@@ -76,7 +76,7 @@ fun PrayerScreen(modifier: Modifier = Modifier) {
 private fun PrayerList(onOpen: (PrayerItem) -> Unit, modifier: Modifier = Modifier) {
     val today = LocalDate.now()
     val mystery = Prayers.mysteryFor(today)
-    LazyColumn(
+    TopLazyColumn(
         modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -150,12 +150,9 @@ private fun PrayerDetail(p: PrayerItem, onBack: () -> Unit, modifier: Modifier =
             IconButton(onClick = { scale = (scale - 0.1f).coerceAtLeast(0.8f) }) { Icon(Icons.Filled.TextDecrease, "글자 작게") }
             IconButton(onClick = { scale = (scale + 0.1f).coerceAtMost(1.6f) }) { Icon(Icons.Filled.TextIncrease, "글자 크게") }
         }
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
+        TopScrollColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 0.dp, bottom = 32.dp),
         ) {
             SectionLabel(p.category, color = MaterialTheme.colorScheme.secondary)
             Text(p.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 4.dp, bottom = 20.dp))

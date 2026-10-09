@@ -22,7 +22,7 @@ class AppSettings(context: Context) {
 
     /** 루틴을 제목과 체크만 보이는 작은 카드로 보기 */
     var routineCompact: Boolean
-        get() = prefs.getBoolean(KEY_ROUTINE_COMPACT, false)
+        get() = prefs.getBoolean(KEY_ROUTINE_COMPACT, true)
         set(v) = prefs.edit().putBoolean(KEY_ROUTINE_COMPACT, v).apply()
 
     /** 앱을 열 때 새 버전이 있는지 확인 */

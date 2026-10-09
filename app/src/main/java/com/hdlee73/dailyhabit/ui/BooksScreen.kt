@@ -96,7 +96,7 @@ fun BooksScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, mo
     val viewing = viewingId?.let { id -> books.firstOrNull { it.id == id } }
 
     Box(modifier.fillMaxSize()) {
-        LazyColumn(
+        TopLazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),

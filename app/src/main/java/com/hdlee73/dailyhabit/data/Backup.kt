@@ -53,6 +53,9 @@ object Backup {
                 .put("revisit", it.revisit).put("visitCount", it.visitCount).put("lastVisitEpochDay", it.lastVisitEpochDay)
                 .put("createdAt", it.createdAt)
         })
+        root.put("restaurantVisits", db.visitDao().all().toJson {
+            JSONObject().put("id", it.id).put("restaurantId", it.restaurantId).put("epochDay", it.epochDay).put("note", it.note)
+        })
         root.put("diary", db.diaryDao().all().toJson {
             JSONObject().put("epochDay", it.epochDay).put("text", it.text).put("mood", it.mood).put("updatedAt", it.updatedAt)
         })
@@ -109,6 +112,16 @@ object Backup {
                 createdAt = it.getLong("createdAt"),
             )
         }
+        val visits: List<RestaurantVisit> = if (root.has("restaurantVisits")) {
+            root.list("restaurantVisits") {
+                RestaurantVisit(it.getLong("id"), it.getLong("restaurantId"), it.getLong("epochDay"), it.optString("note"))
+            }
+        } else {
+            // 방문 기록이 없던 예전 백업: 마지막 방문일을 방문 기록 하나로 만든다
+            restaurants.filter { it.lastVisitEpochDay != null }.mapIndexed { i, r ->
+                RestaurantVisit(id = i + 1L, restaurantId = r.id, epochDay = r.lastVisitEpochDay!!)
+            }
+        }
         val diary = root.list("diary") {
             DiaryEntry(it.getLong("epochDay"), it.getString("text"), it.getInt("mood"), it.getLong("updatedAt"))
         }
@@ -136,6 +149,7 @@ object Backup {
             db.routineDao().clearRoutines(); db.routineDao().clearAllChecks()
             db.routineDao().insertRoutines(routines); db.routineDao().insertChecks(checks)
             db.restaurantDao().clear(); db.restaurantDao().insertAll(restaurants)
+            db.visitDao().clear(); db.visitDao().insertAll(visits)
             db.diaryDao().clear(); db.diaryDao().insertAll(diary)
             db.shoppingDao().clear(); db.shoppingDao().insertAll(shopping)
             db.bookDao().clearBooks(); db.bookDao().clearNotes()

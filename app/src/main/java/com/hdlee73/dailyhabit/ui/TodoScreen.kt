@@ -175,7 +175,7 @@ fun TodoScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, mod
     }
 
     Box(modifier.fillMaxSize()) {
-        LazyColumn(
+        TopLazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),

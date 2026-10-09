@@ -240,10 +240,53 @@ interface RestaurantDao {
     @Query("SELECT * FROM restaurants")
     suspend fun all(): List<Restaurant>
 
+    @Query("SELECT * FROM restaurants WHERE id = :id")
+    suspend fun byId(id: Long): Restaurant?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(list: List<Restaurant>)
 
     @Query("DELETE FROM restaurants")
+    suspend fun clear()
+}
+
+/** 맛집 방문 기록. 한 곳에 여러 번, 날짜마다 따로 남긴다 */
+@Entity(tableName = "restaurant_visits")
+data class RestaurantVisit(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val restaurantId: Long,
+    val epochDay: Long,
+    /** 그날의 한 줄 메모 */
+    val note: String = "",
+)
+
+@Dao
+interface VisitDao {
+    @Query("SELECT * FROM restaurant_visits ORDER BY epochDay DESC, id DESC")
+    fun observeAll(): Flow<List<RestaurantVisit>>
+
+    @Query("SELECT * FROM restaurant_visits")
+    suspend fun all(): List<RestaurantVisit>
+
+    @Query("SELECT * FROM restaurant_visits WHERE restaurantId = :restaurantId")
+    suspend fun of(restaurantId: Long): List<RestaurantVisit>
+
+    @Insert
+    suspend fun insert(v: RestaurantVisit): Long
+
+    @Update
+    suspend fun update(v: RestaurantVisit)
+
+    @Query("DELETE FROM restaurant_visits WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM restaurant_visits WHERE restaurantId = :restaurantId")
+    suspend fun deleteOf(restaurantId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(list: List<RestaurantVisit>)
+
+    @Query("DELETE FROM restaurant_visits")
     suspend fun clear()
 }
 
@@ -426,15 +469,16 @@ interface BookDao {
 @Database(
     entities = [
         Todo::class, Routine::class, RoutineCheck::class, Restaurant::class,
-        DiaryEntry::class, ShoppingItem::class, Book::class, BookNote::class,
+        DiaryEntry::class, ShoppingItem::class, Book::class, BookNote::class, RestaurantVisit::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun todoDao(): TodoDao
     abstract fun routineDao(): RoutineDao
     abstract fun restaurantDao(): RestaurantDao
+    abstract fun visitDao(): VisitDao
     abstract fun diaryDao(): DiaryDao
     abstract fun shoppingDao(): ShoppingDao
     abstract fun bookDao(): BookDao
@@ -505,9 +549,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `restaurant_visits` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`restaurantId` INTEGER NOT NULL, `epochDay` INTEGER NOT NULL, `note` TEXT NOT NULL)"
+                )
+                // 예전에 '오늘 다녀왔어요'로 남긴 마지막 방문일을 방문 기록으로 옮긴다
+                db.execSQL(
+                    "INSERT INTO restaurant_visits (restaurantId, epochDay, note) " +
+                        "SELECT id, lastVisitEpochDay, '' FROM restaurants WHERE lastVisitEpochDay IS NOT NULL"
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "dailyhabit.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build().also { instance = it }
         }
     }

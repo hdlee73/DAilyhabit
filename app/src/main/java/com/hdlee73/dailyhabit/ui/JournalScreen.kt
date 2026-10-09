@@ -117,7 +117,7 @@ fun JournalScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, 
         byDay[d.toEpochDay()]?.let { y to it }
     }
 
-    LazyColumn(
+    TopLazyColumn(
         modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),

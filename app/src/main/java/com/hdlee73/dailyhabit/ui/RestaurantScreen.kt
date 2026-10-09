@@ -3,6 +3,7 @@ package com.hdlee73.dailyhabit.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,7 +29,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Map
@@ -37,6 +42,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -80,8 +86,10 @@ import com.hdlee73.dailyhabit.data.RESTAURANT_CATEGORIES
 import com.hdlee73.dailyhabit.data.RESTAURANT_PRICES
 import com.hdlee73.dailyhabit.data.RESTAURANT_TAGS
 import com.hdlee73.dailyhabit.data.Restaurant
+import com.hdlee73.dailyhabit.data.RestaurantVisit
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
 
 private enum class PlaceFilter(val label: String) { ALL("전체"), VISITED("가본 곳"), WISH("가보고 싶은 곳"), REVISIT("또 갈 곳") }
 private enum class PlaceSort(val label: String) { RECENT("최근 추가"), RATING("별점 높은 순"), VISITS("많이 간 순"), NAME("이름 순") }
@@ -101,6 +109,25 @@ fun RestaurantScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {
     var viewing by remember { mutableStateOf<Restaurant?>(null) }
     var editing by remember { mutableStateOf<Restaurant?>(null) }
     var creating by remember { mutableStateOf(false) }
+    val visitDao = remember { AppDatabase.get(context).visitDao() }
+    val visits by visitDao.observeAll().collectAsState(initial = emptyList())
+    var mode by remember { mutableIntStateOf(0) }
+    var calMonth by remember { mutableStateOf(YearMonth.now()) }
+    var calDay by remember { mutableStateOf(LocalDate.now()) }
+    val placeById = remember(all) { all.associateBy { it.id } }
+
+    // 방문 기록이 바뀌면 맛집의 방문 횟수·최근 방문일을 맞춘다
+    suspend fun syncVisits(restaurantId: Long) {
+        val vs = visitDao.of(restaurantId)
+        val r = dao.byId(restaurantId) ?: return
+        dao.update(
+            r.copy(
+                visitCount = vs.size,
+                lastVisitEpochDay = vs.maxOfOrNull { it.epochDay },
+                wish = if (vs.isNotEmpty()) false else r.wish,
+            )
+        )
+    }
 
     LaunchedEffect(openEditor) {
         if (openEditor) {
@@ -136,11 +163,42 @@ fun RestaurantScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {
     val viewingLive = viewing?.let { v -> all.firstOrNull { it.id == v.id } }
 
     Box(modifier.fillMaxSize()) {
-        LazyColumn(
+        TopLazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item {
+                SegmentedTabs(listOf("목록", "방문 달력"), mode, { mode = it })
+            }
+            if (mode == 1) {
+                item(key = "calendar") {
+                    VisitCalendar(calMonth, visits, calDay, onMonth = { calMonth = it }, onSelect = { calDay = it })
+                }
+                val dayVisits = visits.filter { it.epochDay == calDay.toEpochDay() }
+                item(key = "calendar-day") {
+                    Text(
+                        "${formatKoreanDate(calDay)} · " + if (dayVisits.isEmpty()) "방문한 맛집이 없어요" else "${dayVisits.size}곳 방문",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+                    )
+                }
+                items(dayVisits, key = { "v${it.id}" }) { v ->
+                    val place = placeById[v.restaurantId]
+                    if (place != null) SoftCard(onClick = { viewing = place }) {
+                        Text(place.name, style = MaterialTheme.typography.titleMedium)
+                        val meta = listOf(place.category, place.address).filter { it.isNotBlank() }.joinToString(" · ")
+                        if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (v.note.isNotBlank()) Text(
+                            "“${v.note}”",
+                            fontFamily = FontFamily.Serif,
+                            fontStyle = FontStyle.Italic,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                }
+            } else {
             item {
                 TextField(
                     value = query,
@@ -200,6 +258,7 @@ fun RestaurantScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {
                 }
             }
             items(list, key = { it.id }) { r -> RestaurantCard(r) { viewing = r } }
+            }
         }
         ExtendedFloatingActionButton(
             onClick = { creating = true },
@@ -217,11 +276,15 @@ fun RestaurantScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {
             r = viewingLive,
             onDismiss = { viewing = null },
             onEdit = { editing = viewingLive; viewing = null },
-            onVisitedToday = {
+            visits = visits.filter { it.restaurantId == viewingLive.id },
+            onAddVisit = { d, note ->
                 scope.launch {
-                    dao.update(viewingLive.copy(wish = false, visitCount = viewingLive.visitCount + 1, lastVisitEpochDay = LocalDate.now().toEpochDay()))
+                    visitDao.insert(RestaurantVisit(restaurantId = viewingLive.id, epochDay = d.toEpochDay(), note = note))
+                    syncVisits(viewingLive.id)
                 }
             },
+            onUpdateVisit = { v -> scope.launch { visitDao.update(v); syncVisits(v.restaurantId) } },
+            onDeleteVisit = { id -> scope.launch { visitDao.delete(id); syncVisits(viewingLive.id) } },
             onToggleRevisit = { scope.launch { dao.update(viewingLive.copy(revisit = !viewingLive.revisit)) } },
             onRate = { stars -> scope.launch { dao.update(viewingLive.copy(rating = stars)) } },
         )
@@ -236,7 +299,7 @@ fun RestaurantScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {
                 creating = false; editing = null
             },
             onDelete = { r ->
-                scope.launch { dao.delete(r) }
+                scope.launch { visitDao.deleteOf(r.id); dao.delete(r) }
                 editing = null
             },
         )
@@ -311,12 +374,17 @@ private fun RestaurantDetailSheet(
     r: Restaurant,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
-    onVisitedToday: () -> Unit,
+    visits: List<RestaurantVisit>,
+    onAddVisit: (LocalDate, String) -> Unit,
+    onUpdateVisit: (RestaurantVisit) -> Unit,
+    onDeleteVisit: (Long) -> Unit,
     onToggleRevisit: () -> Unit,
     onRate: (Int) -> Unit,
 ) {
     val context = LocalContext.current
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var visitAdding by remember { mutableStateOf(false) }
+    var visitEditing by remember { mutableStateOf<RestaurantVisit?>(null) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
         LazyColumn(
             Modifier.fillMaxWidth().navigationBarsPadding(),
@@ -397,20 +465,194 @@ private fun RestaurantDetailSheet(
             }
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "방문 기록" + if (visits.isNotEmpty()) " ${visits.size}" else "",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { visitAdding = true }) {
+                        Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("방문 기록하기")
+                    }
+                }
+                if (visits.isEmpty()) Text(
+                    "다녀온 날을 기록해 두면 ‘방문 달력’에서 볼 수 있어요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                visits.forEach { v ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { visitEditing = v }.padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            LocalDate.ofEpochDay(v.epochDay).let { "${it.year}년 ${formatKoreanDate(it)}" },
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            v.note,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(start = 12.dp),
+                        )
+                        Icon(Icons.Filled.Edit, "수정", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("또 갈래요", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                     Switch(checked = r.revisit, onCheckedChange = { onToggleRevisit() })
                 }
                 HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onVisitedToday, modifier = Modifier.weight(1f)) { Text("오늘 다녀왔어요") }
                     Button(
                         onClick = onEdit,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface, contentColor = MaterialTheme.colorScheme.surface),
                     ) { Text("수정") }
                 }
             }
         }
+    }
+    if (visitAdding) {
+        VisitDialog(null, onDismiss = { visitAdding = false }, onDelete = null, onSave = { d, n -> onAddVisit(d, n); visitAdding = false })
+    }
+    visitEditing?.let { v ->
+        VisitDialog(
+            v,
+            onDismiss = { visitEditing = null },
+            onDelete = { onDeleteVisit(v.id); visitEditing = null },
+            onSave = { d, n -> onUpdateVisit(v.copy(epochDay = d.toEpochDay(), note = n)); visitEditing = null },
+        )
+    }
+}
+
+@Composable
+private fun VisitDialog(
+    initial: RestaurantVisit?,
+    onDismiss: () -> Unit,
+    onSave: (LocalDate, String) -> Unit,
+    onDelete: (() -> Unit)?,
+) {
+    var date by remember { mutableStateOf(initial?.let { LocalDate.ofEpochDay(it.epochDay) } ?: LocalDate.now()) }
+    var note by remember { mutableStateOf(initial?.note.orEmpty()) }
+    var pick by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial == null) "방문 기록하기" else "방문 기록 수정") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = { pick = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("${date.year}년 ${formatKoreanDate(date)}")
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { if (it.length <= 80) note = it },
+                    label = { Text("그날의 한 줄 메모 (선택)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(date, note.trim()) }) { Text("저장") } },
+        dismissButton = {
+            Row {
+                if (onDelete != null) TextButton(onClick = onDelete) { Text("삭제", color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = onDismiss) { Text("취소") }
+            }
+        },
+    )
+    if (pick) DatePickDialog(date, onDismiss = { pick = false }) { date = it; pick = false }
+}
+
+@Composable
+private fun VisitCalendar(
+    month: YearMonth,
+    visits: List<RestaurantVisit>,
+    selected: LocalDate,
+    onMonth: (YearMonth) -> Unit,
+    onSelect: (LocalDate) -> Unit,
+) {
+    val today = LocalDate.now()
+    val counts = remember(visits) { visits.groupingBy { it.epochDay }.eachCount() }
+    val inMonth = visits.filter { YearMonth.from(LocalDate.ofEpochDay(it.epochDay)) == month }
+    SoftCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onMonth(month.minusMonths(1)) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "이전 달") }
+            Text(
+                "${month.year}년 ${month.monthValue}월",
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = { onMonth(month.plusMonths(1)) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "다음 달") }
+        }
+        Text(
+            if (inMonth.isEmpty()) "이 달에 기록한 방문이 없어요" else "이 달 ${inMonth.map { it.restaurantId }.distinct().size}곳 · ${inMonth.size}번 방문",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
+        )
+        Row(Modifier.fillMaxWidth()) {
+            listOf("일", "월", "화", "수", "목", "금", "토").forEach {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        val offset = month.atDay(1).dayOfWeek.value % 7
+        val rows = (offset + month.lengthOfMonth() + 6) / 7
+        for (r in 0 until rows) {
+            Row(Modifier.fillMaxWidth()) {
+                for (c in 0 until 7) {
+                    val dayNum = r * 7 + c - offset + 1
+                    if (dayNum in 1..month.lengthOfMonth()) {
+                        val d = month.atDay(dayNum)
+                        CalendarDayCell(d, counts[d.toEpochDay()] ?: 0, d == selected, d == today) { onSelect(d) }
+                    } else {
+                        Box(Modifier.weight(1f).height(50.dp))
+                    }
+                }
+            }
+        }
+        TextButton(
+            onClick = { onMonth(YearMonth.from(today)); onSelect(today) },
+            modifier = Modifier.padding(top = 4.dp),
+        ) { Text("오늘로") }
+    }
+}
+
+@Composable
+private fun RowScope.CalendarDayCell(day: LocalDate, count: Int, selected: Boolean, isToday: Boolean, onClick: () -> Unit) {
+    val primary = MaterialTheme.colorScheme.primary
+    Column(
+        Modifier
+            .weight(1f)
+            .height(50.dp)
+            .padding(2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) primary.copy(alpha = 0.16f) else Color.Transparent)
+            .then(if (isToday) Modifier.border(1.5.dp, primary.copy(alpha = 0.6f), RoundedCornerShape(12.dp)) else Modifier)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text("${day.dayOfMonth}", style = MaterialTheme.typography.bodyMedium)
+        Box(
+            Modifier
+                .padding(top = 3.dp)
+                .size(if (count > 0) 7.dp else 0.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(primary),
+        )
     }
 }
 

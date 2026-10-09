@@ -42,7 +42,7 @@ object Notifier {
         nm.createNotificationChannels(
             listOf(
                 NotificationChannel(CHANNEL_DAILY, "아침 알림", NotificationManager.IMPORTANCE_HIGH).apply {
-                    description = "오늘의 복음, 가정을 위한 기도, 오늘 일정"
+                    description = if (BuildConfig.CATHOLIC) "오늘의 복음 요약, 오늘 일정" else "오늘 일정, 오늘 루틴"
                 },
                 NotificationChannel(CHANNEL_ROUTINE, "루틴 알림", NotificationManager.IMPORTANCE_HIGH).apply {
                     description = "매일 루틴을 정한 시각에 알려줍니다"
@@ -145,48 +145,40 @@ object Notifier {
         pendingTodos: List<Todo>,
         routines: List<Routine> = emptyList(),
     ) {
-        val prayer = FamilyPrayers.forDate(date)
-        val quote = Quotes.forDate(date)
         val text = buildString {
             if (BuildConfig.CATHOLIC) {
+                // 복음 본문 전체 대신 요약: 매일미사의 주제 문장, 없으면 본문 첫머리
                 append("✠ 오늘의 복음")
                 if (gospel != null) {
                     append(" · ").append(gospel.reference).append('\n')
-                    if (gospel.title.isNotBlank()) append("<").append(gospel.title).append(">\n")
-                    val body = gospel.body.replace('\n', ' ')
-                    append(if (body.length > 300) body.take(300) + "…" else body)
+                    val digest = gospel.title.ifBlank {
+                        val body = gospel.body.replace('\n', ' ')
+                        if (body.length > 90) body.take(90) + "…" else body
+                    }
+                    append(digest)
                 } else {
                     append("\n복음을 불러오지 못했어요. 앱에서 다시 시도해 주세요.")
                 }
-                append("\n\n🙏 ").append(prayer.title).append('\n')
-                append(prayer.text)
-            } else {
-                append("💬 오늘의 명언\n")
-                append(quote.ko).append('\n')
-                append(quote.en).append('\n')
-                append("— ").append(quote.author)
+                append("\n\n")
             }
-            append("\n\n📅 오늘 일정\n")
+            append("📅 오늘 일정\n")
             when {
                 !calendarAllowed -> append("캘린더 권한이 필요해요. 앱을 열어 허용해 주세요.")
                 events.isEmpty() -> append("오늘은 등록된 일정이 없어요.")
                 else -> events.forEach { append("• ").append(formatEventTime(it, date)).append("  ").append(it.title).append('\n') }
             }
-            if (routines.isNotEmpty()) {
-                append("\n🔁 오늘 루틴 ").append(routines.size).append("개\n")
-                append(routines.joinToString("  ") { "${it.emoji} ${it.title}" })
-            }
-            if (pendingTodos.isNotEmpty()) {
-                append("\n\n✅ 남은 할 일 ").append(pendingTodos.size).append("개")
-                pendingTodos.take(3).forEach { append("\n• ").append(it.title) }
+            if (!BuildConfig.CATHOLIC) {
+                append("\n\n🔁 오늘 루틴\n")
+                if (routines.isEmpty()) append("오늘 예정된 루틴이 없어요.")
+                else append(routines.joinToString("  ") { "${it.emoji} ${it.title}" })
             }
         }.trim()
 
         val summary = buildString {
-            append(if (BuildConfig.CATHOLIC) gospel?.reference ?: "오늘의 복음" else quote.ko.take(24))
-            append(" · 일정 ")
+            if (BuildConfig.CATHOLIC) append(gospel?.reference ?: "오늘의 복음").append(" · ")
+            append("일정 ")
             append(if (calendarAllowed) "${events.size}개" else "-")
-            if (routines.isNotEmpty()) append(" · 루틴 ${routines.size}개")
+            if (!BuildConfig.CATHOLIC) append(" · 루틴 ${routines.size}개")
         }
 
         val n = NotificationCompat.Builder(context, CHANNEL_DAILY)
