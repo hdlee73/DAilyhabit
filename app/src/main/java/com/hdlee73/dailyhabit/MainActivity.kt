@@ -108,7 +108,6 @@ class MainActivity : ComponentActivity() {
                 val checks by db.routineDao().observeChecks().collectAsState(initial = emptyList())
                 val places by db.restaurantDao().observeAll().collectAsState(initial = emptyList())
                 val diary by db.diaryDao().observeAll().collectAsState(initial = emptyList())
-                val shopping by db.shoppingDao().observeAll().collectAsState(initial = emptyList())
                 val books by db.bookDao().observeBooks().collectAsState(initial = emptyList())
                 val today = LocalDate.now()
                 val todaysRoutines = routines.filter { it.activeOn(today.dayOfWeek) }
@@ -118,7 +117,6 @@ class MainActivity : ComponentActivity() {
                         "${todaysRoutines.count { r -> checks.any { it.routineId == r.id && it.epochDay == today.toEpochDay() } }}/${todaysRoutines.size}",
                     Section.RESTAURANT to places.size.takeIf { it > 0 }?.toString().orEmpty(),
                     Section.JOURNAL to if (diary.any { it.epochDay == today.toEpochDay() }) "✓" else "",
-                    Section.SHOPPING to shopping.count { !it.checked }.takeIf { it > 0 }?.toString().orEmpty(),
                     Section.BOOKS to books.count { it.status == 0 }.takeIf { it > 0 }?.toString().orEmpty(),
                     Section.ABOUT to if (Updater.hasUpdate) "NEW" else "",
                 )
@@ -131,6 +129,13 @@ class MainActivity : ComponentActivity() {
                     scope.launch { drawer.close() }
                 }
 
+                // 오늘의 말씀 화면을 실제로 보고 있으면(메뉴가 닫힌 상태) '말씀 읽기' 루틴을 체크한다
+                val menuClosed = drawer.currentValue == DrawerValue.Closed
+                androidx.compose.runtime.LaunchedEffect(section, menuClosed) {
+                    if (section == Section.GOSPEL && menuClosed) {
+                        com.hdlee73.dailyhabit.data.FaithRoutines.markDone(applicationContext, com.hdlee73.dailyhabit.data.FaithRoutines.KIND_GOSPEL)
+                    }
+                }
                 androidx.compose.runtime.LaunchedEffect(closeDrawerSignal) {
                     if (closeDrawerSignal > 0) drawer.close()
                 }

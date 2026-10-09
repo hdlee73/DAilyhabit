@@ -143,7 +143,7 @@ fun AppDrawer(
                 DropdownMenu(expanded = newMenu, onDismissRequest = { newMenu = false }) {
                     listOf(
                         Section.TODO to "할 일", Section.ROUTINE to "루틴", Section.JOURNAL to "한 줄 일기",
-                        Section.SHOPPING to "장보기 품목", Section.BOOKS to "책", Section.RESTAURANT to "맛집",
+                        Section.RESTAURANT to "맛집", Section.BOOKS to "책",
                     ).forEach { (s, label) ->
                         DropdownMenuItem(
                             text = { Text(label) },

@@ -34,6 +34,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,13 +51,24 @@ import java.time.LocalDate
 
 @Composable
 fun PrayerScreen(modifier: Modifier = Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     var openId by rememberSaveable { mutableStateOf<String?>(null) }
     val open = openId?.let { Prayers.byId(it) }
     if (open != null) {
         BackHandler { openId = null }
         PrayerDetail(open, onBack = { openId = null }, modifier)
     } else {
-        PrayerList(onOpen = { openId = it.id }, modifier)
+        PrayerList(
+            onOpen = {
+                openId = it.id
+                // 기도문을 열어 보면 '기도하기' 루틴을 체크한다
+                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    com.hdlee73.dailyhabit.data.FaithRoutines.markDone(context, com.hdlee73.dailyhabit.data.FaithRoutines.KIND_PRAYER)
+                }
+            },
+            modifier,
+        )
     }
 }
 

@@ -98,6 +98,8 @@ data class Routine(
     val createdEpochDay: Long,
     val archived: Boolean = false,
     val sortOrder: Int = 0,
+    /** 0 일반, 1 오늘의 말씀 읽기, 2 기도하기 (천주교인용 자동 체크 루틴) */
+    @ColumnInfo(defaultValue = "0") val kind: Int = 0,
 ) {
     fun activeOn(dayOfWeek: java.time.DayOfWeek): Boolean = days and (1 shl (dayOfWeek.value - 1)) != 0
 
@@ -185,7 +187,10 @@ interface RoutineDao {
 // ───────────── 맛집 ─────────────
 
 val RESTAURANT_CATEGORIES = listOf("한식", "중식", "일식", "양식", "아시안", "분식", "고기", "해산물", "카페·디저트", "술집", "기타")
-val RESTAURANT_TAGS = listOf("가족", "데이트", "친구", "혼밥", "회식", "가성비", "분위기", "주차 가능", "아이 동반", "포장·배달")
+val RESTAURANT_TAGS = listOf("가족", "데이트", "친구", "혼밥", "회식", "접대", "가성비", "분위기", "주차 가능", "아이 동반", "포장·배달")
+
+/** 1인 기준 가격대. Restaurant.price가 이 목록의 위치 (0은 미정) */
+val RESTAURANT_PRICES = listOf("미정", "1만원 미만", "1~2만원", "2~3만원", "3~5만원", "5만원 이상")
 
 @Entity(tableName = "restaurants")
 data class Restaurant(
@@ -423,7 +428,7 @@ interface BookDao {
         Todo::class, Routine::class, RoutineCheck::class, Restaurant::class,
         DiaryEntry::class, ShoppingItem::class, Book::class, BookNote::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -494,9 +499,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE routines ADD COLUMN kind INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "dailyhabit.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build().also { instance = it }
         }
     }

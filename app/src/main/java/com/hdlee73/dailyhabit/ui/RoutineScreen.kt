@@ -27,7 +27,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -89,6 +91,8 @@ fun RoutineScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, 
     var editing by remember { mutableStateOf<Routine?>(null) }
     var creating by remember { mutableStateOf(false) }
     val today = LocalDate.now()
+    val settings = remember { com.hdlee73.dailyhabit.data.AppSettings(context) }
+    var compact by remember { mutableStateOf(settings.routineCompact) }
 
     LaunchedEffect(openEditor) {
         if (openEditor) {
@@ -112,7 +116,8 @@ fun RoutineScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, 
             )
             if (tab == 0) {
                 TodayRoutines(
-                    routines, checkMap, today,
+                    routines, checkMap, today, compact,
+                    onToggleCompact = { compact = !compact; settings.routineCompact = compact },
                     onToggle = { r, day -> scope.launch { dao.toggle(r.id, day.toEpochDay()) } },
                     onEdit = { editing = it },
                 )
@@ -161,6 +166,8 @@ private fun TodayRoutines(
     routines: List<Routine>,
     checks: Map<Long, Set<Long>>,
     today: LocalDate,
+    compact: Boolean,
+    onToggleCompact: () -> Unit,
     onToggle: (Routine, LocalDate) -> Unit,
     onEdit: (Routine) -> Unit,
 ) {
@@ -197,6 +204,13 @@ private fun TodayRoutines(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Box(Modifier.weight(1f))
+                    androidx.compose.material3.IconButton(onClick = onToggleCompact) {
+                        Icon(
+                            if (compact) Icons.Filled.ViewAgenda else Icons.Filled.GridView,
+                            contentDescription = if (compact) "자세히 보기" else "간단히 보기",
+                        )
+                    }
                 }
             }
         }
@@ -205,15 +219,72 @@ private fun TodayRoutines(
                 EmptyState("🌱", "매일 반복할 습관을 등록해 보세요", "기도, 성경 읽기, 운동처럼 매일 하는 일을 루틴으로 만들면\n알림을 받고 체크하고 통계로 확인할 수 있어요.")
             }
         }
-        items(todays, key = { it.id }) { r ->
-            RoutineCard(r, checks[r.id].orEmpty(), today, onToggle = { onToggle(r, it) }, onClick = { onEdit(r) })
-        }
-        if (resting.isNotEmpty()) {
-            item { SectionLabel("오늘 쉬는 루틴", Modifier.padding(top = 12.dp)) }
-            items(resting, key = { it.id }) { r ->
-                RoutineCard(r, checks[r.id].orEmpty(), today, onToggle = { onToggle(r, it) }, onClick = { onEdit(r) }, resting = true)
+        if (compact) {
+            // 간단히 보기: 한 줄에 두 개, 제목과 체크만
+            items(todays.chunked(2), key = { row -> "c${row.first().id}" }) { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { r ->
+                        CompactRoutine(r, checks[r.id].orEmpty(), today, false, { onToggle(r, today) }, { onEdit(r) }, Modifier.weight(1f))
+                    }
+                    if (row.size == 1) Box(Modifier.weight(1f))
+                }
+            }
+            if (resting.isNotEmpty()) {
+                item { SectionLabel("오늘 쉬는 루틴", Modifier.padding(top = 12.dp)) }
+                items(resting.chunked(2), key = { row -> "r${row.first().id}" }) { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        row.forEach { r ->
+                            CompactRoutine(r, checks[r.id].orEmpty(), today, true, { onToggle(r, today) }, { onEdit(r) }, Modifier.weight(1f))
+                        }
+                        if (row.size == 1) Box(Modifier.weight(1f))
+                    }
+                }
+            }
+        } else {
+            items(todays, key = { it.id }) { r ->
+                RoutineCard(r, checks[r.id].orEmpty(), today, onToggle = { onToggle(r, it) }, onClick = { onEdit(r) })
+            }
+            if (resting.isNotEmpty()) {
+                item { SectionLabel("오늘 쉬는 루틴", Modifier.padding(top = 12.dp)) }
+                items(resting, key = { it.id }) { r ->
+                    RoutineCard(r, checks[r.id].orEmpty(), today, onToggle = { onToggle(r, it) }, onClick = { onEdit(r) }, resting = true)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun CompactRoutine(
+    r: Routine,
+    checked: Set<Long>,
+    today: LocalDate,
+    resting: Boolean,
+    onToggle: () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val color = routineColor(r.color)
+    val isDone = today.toEpochDay() in checked
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier
+            .clip(shape)
+            .background(if (isDone) color.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surfaceContainerLowest)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .clickable(onClick = onClick)
+            .padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            r.title,
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            color = if (resting) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f).padding(end = 8.dp),
+        )
+        if (!resting) CheckCircle(isDone, color, size = 30.dp, onClick = onToggle)
     }
 }
 
@@ -248,6 +319,7 @@ private fun RoutineCard(
                         Text(formatMinute(r.reminderMinute), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    if (r.kind != 0) Pill("자동 체크", MaterialTheme.colorScheme.tertiary)
                     if (streak > 0) Pill("🔥 ${streak}일", MaterialTheme.colorScheme.secondary)
                 }
             }

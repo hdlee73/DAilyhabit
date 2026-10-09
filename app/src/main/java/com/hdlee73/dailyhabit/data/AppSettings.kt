@@ -15,6 +15,16 @@ class AppSettings(context: Context) {
         get() = prefs.getInt(KEY_DAILY_MINUTE, 9 * 60)
         set(v) = prefs.edit().putInt(KEY_DAILY_MINUTE, v).apply()
 
+    /** 천주교인용 기본 루틴(말씀 읽기·기도하기)을 이미 만들었는지 */
+    var faithRoutinesSeeded: Boolean
+        get() = prefs.getBoolean(KEY_FAITH_SEEDED, false)
+        set(v) = prefs.edit().putBoolean(KEY_FAITH_SEEDED, v).apply()
+
+    /** 루틴을 제목과 체크만 보이는 작은 카드로 보기 */
+    var routineCompact: Boolean
+        get() = prefs.getBoolean(KEY_ROUTINE_COMPACT, false)
+        set(v) = prefs.edit().putBoolean(KEY_ROUTINE_COMPACT, v).apply()
+
     /** 앱을 열 때 새 버전이 있는지 확인 */
     var autoUpdateCheck: Boolean
         get() = prefs.getBoolean(KEY_AUTO_UPDATE, true)
@@ -34,6 +44,8 @@ class AppSettings(context: Context) {
         set(v) = prefs.edit().putString(KEY_SHOPPING_HISTORY, v.joinToString("\n")).apply()
 
     companion object {
+        private const val KEY_FAITH_SEEDED = "faith_routines_seeded"
+        private const val KEY_ROUTINE_COMPACT = "routine_compact"
         private const val KEY_AUTO_UPDATE = "auto_update_check"
         private const val KEY_LAST_UPDATE_CHECK = "last_update_check"
         private const val KEY_LAST_BACKUP = "last_backup"

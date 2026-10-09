@@ -16,6 +16,9 @@ class DailyHabitApp : Application() {
         super.onCreate()
         Notifier.createChannels(this)
         DailyScheduler.schedule(this)
-        appScope.launch { Reminders.rescheduleAll(this@DailyHabitApp) }
+        appScope.launch {
+            com.hdlee73.dailyhabit.data.FaithRoutines.seed(this@DailyHabitApp)
+            Reminders.rescheduleAll(this@DailyHabitApp)
+        }
     }
 }

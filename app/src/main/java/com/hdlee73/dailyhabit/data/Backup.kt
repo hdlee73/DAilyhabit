@@ -41,7 +41,7 @@ object Backup {
         root.put("routines", db.routineDao().allRoutines().toJson {
             JSONObject().put("id", it.id).put("title", it.title).put("emoji", it.emoji).put("color", it.color).put("days", it.days)
                 .put("reminderEnabled", it.reminderEnabled).put("reminderMinute", it.reminderMinute)
-                .put("createdEpochDay", it.createdEpochDay).put("archived", it.archived).put("sortOrder", it.sortOrder)
+                .put("createdEpochDay", it.createdEpochDay).put("archived", it.archived).put("sortOrder", it.sortOrder).put("kind", it.kind)
         })
         root.put("routineChecks", db.routineDao().allChecks().toJson {
             JSONObject().put("routineId", it.routineId).put("epochDay", it.epochDay).put("checkedAt", it.checkedAt)
@@ -93,7 +93,7 @@ object Backup {
                 id = it.getLong("id"), title = it.getString("title"), emoji = it.getString("emoji"), color = it.getInt("color"),
                 days = it.getInt("days"), reminderEnabled = it.getBoolean("reminderEnabled"),
                 reminderMinute = it.getInt("reminderMinute"), createdEpochDay = it.getLong("createdEpochDay"),
-                archived = it.getBoolean("archived"), sortOrder = it.getInt("sortOrder"),
+                archived = it.getBoolean("archived"), sortOrder = it.getInt("sortOrder"), kind = it.optInt("kind", 0),
             )
         }
         val checks = root.list("routineChecks") {

@@ -13,7 +13,7 @@ enum class Section(val label: String) {
     QUOTE("오늘의 명언"),
     RESTAURANT("맛집"),
     JOURNAL("한 줄 일기"),
-    SHOPPING("장보기"),
+    SHOPPING("장보기"), // 메뉴에서는 숨김 (저장된 기록은 보존)
     BOOKS("독서"),
     ABOUT("앱 정보"),
     ;
@@ -26,7 +26,7 @@ enum class Section(val label: String) {
         val primary: List<Section> get() = if (BuildConfig.CATHOLIC) listOf(GOSPEL, PRAYER) else listOf(QUOTE)
 
         /** '하루 관리' 묶음 */
-        val daily = listOf(SCHEDULE, TODO, ROUTINE, JOURNAL, SHOPPING, BOOKS, RESTAURANT)
+        val daily = listOf(SCHEDULE, TODO, ROUTINE, JOURNAL, RESTAURANT, BOOKS)
 
         fun available(): List<Section> = primary + daily + SETTINGS + ABOUT
 

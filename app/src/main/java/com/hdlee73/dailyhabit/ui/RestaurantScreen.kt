@@ -77,6 +77,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.hdlee73.dailyhabit.data.AppDatabase
 import com.hdlee73.dailyhabit.data.RESTAURANT_CATEGORIES
+import com.hdlee73.dailyhabit.data.RESTAURANT_PRICES
 import com.hdlee73.dailyhabit.data.RESTAURANT_TAGS
 import com.hdlee73.dailyhabit.data.Restaurant
 import kotlinx.coroutines.launch
@@ -258,7 +259,7 @@ fun StarRow(rating: Int, size: Dp = 16.dp, onRate: ((Int) -> Unit)? = null) {
     }
 }
 
-private fun priceLabel(p: Int) = if (p in 1..3) "₩".repeat(p) else ""
+private fun priceLabel(p: Int) = if (p in 1 until RESTAURANT_PRICES.size) RESTAURANT_PRICES[p] else ""
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -511,8 +512,12 @@ private fun RestaurantEditorSheet(
             }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SectionLabel("가격대")
-                    SegmentedTabs(listOf("미정", "₩", "₩₩", "₩₩₩"), price, { price = it })
+                    SectionLabel("가격대 (1인 기준)")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RESTAURANT_PRICES.forEachIndexed { i, label ->
+                            FilterChip(price == i, { price = i }, { Text(label) })
+                        }
+                    }
                 }
             }
             if (!wish) item {
