@@ -110,7 +110,7 @@ object Notifier {
     fun showUpdate(context: Context, version: String) {
         val n = NotificationCompat.Builder(context, CHANNEL_UPDATE)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("새 버전 v$version이 나왔어요")
+            .setContentTitle("새 버전 v${version}이 나왔어요")
             .setContentText("눌러서 업데이트하세요. 설치할 때까지 계속 알려드려요.")
             .setContentIntent(openApp(context, Section.ABOUT.ordinal, UPDATE_ID))
             .setAutoCancel(true)

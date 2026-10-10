@@ -191,7 +191,7 @@ fun ReviewScreen(modifier: Modifier = Modifier) {
                         Text("${(routinePercent * 100).roundToInt()}%", style = MaterialTheme.typography.titleMedium)
                     }
                     Text(
-                        "$totalAll번 중 ${totalDone}번 했어요",
+                        "${totalAll}번 중 ${totalDone}번 했어요",
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(start = 16.dp),
                     )
