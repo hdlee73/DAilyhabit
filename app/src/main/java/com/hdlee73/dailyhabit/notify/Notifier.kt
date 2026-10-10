@@ -32,6 +32,8 @@ object Notifier {
     private const val CHANNEL_ROUTINE = "routine"
     private const val CHANNEL_TODO = "todo"
     private const val CHANNEL_WORK = "background"
+    private const val CHANNEL_UPDATE = "app_update"
+    private const val UPDATE_ID = 9003
     private const val DAILY_ID = 9001
     const val PREPARING_ID = 9002
 
@@ -49,6 +51,9 @@ object Notifier {
                 },
                 NotificationChannel(CHANNEL_TODO, "할 일 마감 알림", NotificationManager.IMPORTANCE_HIGH).apply {
                     description = "마감 시각이 된 할 일을 알려줍니다"
+                },
+                NotificationChannel(CHANNEL_UPDATE, "새 버전 알림", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    description = "새 버전이 나오면 설치할 때까지 알려줍니다"
                 },
                 NotificationChannel(CHANNEL_WORK, "알림 준비", NotificationManager.IMPORTANCE_MIN),
             )
@@ -101,6 +106,20 @@ object Notifier {
             .setContentTitle("오늘의 말씀을 준비하고 있어요")
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .build()
+
+    fun showUpdate(context: Context, version: String) {
+        val n = NotificationCompat.Builder(context, CHANNEL_UPDATE)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("새 버전 v$version이 나왔어요")
+            .setContentText("눌러서 업데이트하세요. 설치할 때까지 계속 알려드려요.")
+            .setContentIntent(openApp(context, Section.ABOUT.ordinal, UPDATE_ID))
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        post(context, UPDATE_ID, n)
+    }
+
+    fun cancelUpdate(context: Context) = NotificationManagerCompat.from(context).cancel(UPDATE_ID)
 
     fun showRoutine(context: Context, routine: Routine) {
         val n = NotificationCompat.Builder(context, CHANNEL_ROUTINE)

@@ -73,6 +73,10 @@ fun BooksScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, mo
     var tab by remember { mutableIntStateOf(0) }
     var viewingId by remember { mutableStateOf<Long?>(null) }
     var creating by remember { mutableStateOf(false) }
+    val settings = remember { com.hdlee73.dailyhabit.data.AppSettings(context) }
+    val thisYear = LocalDate.now().year
+    var goal by remember { mutableIntStateOf(settings.readingGoal(thisYear)) }
+    var editGoal by remember { mutableStateOf(false) }
 
     LaunchedEffect(openEditor) {
         if (openEditor) {
@@ -89,7 +93,6 @@ fun BooksScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, mo
     val list = books.filter { it.status == status.ordinal }.let { l ->
         if (status == BookStatus.DONE) l.sortedByDescending { it.endEpochDay ?: it.createdAt } else l
     }
-    val thisYear = LocalDate.now().year
     val doneThisYear = books.filter {
         it.status == BookStatus.DONE.ordinal && it.endEpochDay?.let { d -> LocalDate.ofEpochDay(d).year } == thisYear
     }
@@ -101,6 +104,9 @@ fun BooksScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, mo
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item {
+                ReadingGoalCard(goal, doneThisYear.size, thisYear) { editGoal = true }
+            }
             item {
                 SegmentedTabs(
                     BookStatus.entries.map { s -> books.count { it.status == s.ordinal }.let { n -> if (n > 0) "${s.label} $n" else s.label } },
@@ -136,6 +142,41 @@ fun BooksScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, mo
         )
     }
 
+    if (editGoal) {
+        var text by remember { mutableStateOf(if (goal > 0) goal.toString() else "") }
+        AlertDialog(
+            onDismissRequest = { editGoal = false },
+            title = { Text("${thisYear}년 독서 목표") },
+            text = {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.filter { c -> c.isDigit() }.take(3) },
+                    label = { Text("올해 읽을 책 (권)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    goal = text.toIntOrNull() ?: 0
+                    settings.setReadingGoal(thisYear, goal)
+                    editGoal = false
+                }) { Text("저장") }
+            },
+            dismissButton = {
+                Row {
+                    if (goal > 0) TextButton(onClick = {
+                        goal = 0
+                        settings.setReadingGoal(thisYear, 0)
+                        editGoal = false
+                    }) { Text("목표 없애기", color = MaterialTheme.colorScheme.error) }
+                    TextButton(onClick = { editGoal = false }) { Text("취소") }
+                }
+            },
+        )
+    }
+
     if (viewing != null) {
         BookDetailSheet(
             book = viewing,
@@ -164,6 +205,42 @@ fun BooksScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, mo
                 creating = false
             },
         )
+    }
+}
+
+@Composable
+private fun ReadingGoalCard(goal: Int, done: Int, year: Int, onEdit: () -> Unit) {
+    SoftCard(onClick = onEdit, color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)) {
+        SectionLabel("${year}년 독서 목표", color = MaterialTheme.colorScheme.primary)
+        if (goal <= 0) {
+            Text("올해 읽을 책 권수를 정해 보세요", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+            Text("지금까지 ${done}권 읽었어요 · 눌러서 목표 정하기", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+        } else {
+            val today = LocalDate.now()
+            val expected = goal.toFloat() * today.dayOfYear / today.lengthOfYear()
+            val remaining = (goal - done).coerceAtLeast(0)
+            val monthsLeft = 12 - today.monthValue + 1
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 8.dp)) {
+                Text("$done", style = MaterialTheme.typography.headlineMedium)
+                Text(" / ${goal}권", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 3.dp))
+            }
+            LinearProgressIndicator(
+                progress = { (done.toFloat() / goal).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                trackColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            )
+            Text(
+                when {
+                    remaining == 0 -> "목표 달성! 🎉 정말 대단해요"
+                    done >= expected + 0.5f -> "계획보다 앞서 가고 있어요 · 남은 ${remaining}권"
+                    done + 0.5f < expected -> "조금 늦었어요 · 남은 ${remaining}권, 한 달에 약 ${"%.1f".format(remaining.toFloat() / monthsLeft)}권"
+                    else -> "계획대로 잘 가고 있어요 · 남은 ${remaining}권"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
     }
 }
 

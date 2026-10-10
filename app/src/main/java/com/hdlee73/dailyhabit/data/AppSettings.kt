@@ -25,6 +25,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean(KEY_ROUTINE_COMPACT, true)
         set(v) = prefs.edit().putBoolean(KEY_ROUTINE_COMPACT, v).apply()
 
+    /** 그 해에 읽고 싶은 책 권수 (0이면 목표 없음) */
+    fun readingGoal(year: Int): Int = prefs.getInt("reading_goal_$year", 0)
+
+    fun setReadingGoal(year: Int, count: Int) = prefs.edit().putInt("reading_goal_$year", count).apply()
+
     /** 앱을 열 때 새 버전이 있는지 확인 */
     var autoUpdateCheck: Boolean
         get() = prefs.getBoolean(KEY_AUTO_UPDATE, true)

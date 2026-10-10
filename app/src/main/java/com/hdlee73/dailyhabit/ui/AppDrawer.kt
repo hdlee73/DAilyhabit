@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Repeat
@@ -69,6 +70,7 @@ fun Section.icon(): ImageVector = when (this) {
     Section.SHOPPING -> Icons.Outlined.ShoppingCart
     Section.BOOKS -> Icons.Outlined.AutoStories
     Section.ABOUT -> Icons.Outlined.Info
+    Section.REVIEW -> Icons.Outlined.Insights
 }
 
 private val AvatarColor = Color(0xFF7B6CF0)

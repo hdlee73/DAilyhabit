@@ -31,7 +31,12 @@ object Backup {
         root.put("format", FORMAT)
         root.put("appVersion", BuildConfig.VERSION_NAME)
         root.put("exportedAt", System.currentTimeMillis())
-        root.put("settings", JSONObject().put("dailyEnabled", settings.dailyEnabled).put("dailyMinute", settings.dailyMinute))
+        val year = java.time.LocalDate.now().year
+        root.put(
+            "settings",
+            JSONObject().put("dailyEnabled", settings.dailyEnabled).put("dailyMinute", settings.dailyMinute)
+                .put("readingGoalYear", year).put("readingGoal", settings.readingGoal(year)),
+        )
 
         root.put("todos", db.todoDao().all().toJson {
             JSONObject().put("id", it.id).put("title", it.title).put("done", it.done).put("dueEpochDay", it.dueEpochDay)
@@ -54,7 +59,7 @@ object Backup {
                 .put("createdAt", it.createdAt)
         })
         root.put("restaurantVisits", db.visitDao().all().toJson {
-            JSONObject().put("id", it.id).put("restaurantId", it.restaurantId).put("epochDay", it.epochDay).put("note", it.note)
+            JSONObject().put("id", it.id).put("restaurantId", it.restaurantId).put("epochDay", it.epochDay).put("note", it.note).put("photo", it.photo)
         })
         root.put("diary", db.diaryDao().all().toJson {
             JSONObject().put("epochDay", it.epochDay).put("text", it.text).put("mood", it.mood).put("updatedAt", it.updatedAt)
@@ -114,7 +119,7 @@ object Backup {
         }
         val visits: List<RestaurantVisit> = if (root.has("restaurantVisits")) {
             root.list("restaurantVisits") {
-                RestaurantVisit(it.getLong("id"), it.getLong("restaurantId"), it.getLong("epochDay"), it.optString("note"))
+                RestaurantVisit(it.getLong("id"), it.getLong("restaurantId"), it.getLong("epochDay"), it.optString("note"), it.optString("photo"))
             }
         } else {
             // 방문 기록이 없던 예전 백업: 마지막 방문일을 방문 기록 하나로 만든다
@@ -160,6 +165,7 @@ object Backup {
             val settings = AppSettings(context)
             if (it.has("dailyEnabled")) settings.dailyEnabled = it.getBoolean("dailyEnabled")
             if (it.has("dailyMinute")) settings.dailyMinute = it.getInt("dailyMinute")
+            if (it.has("readingGoalYear") && it.has("readingGoal")) settings.setReadingGoal(it.getInt("readingGoalYear"), it.getInt("readingGoal"))
         }
         DailyScheduler.schedule(context)
         Reminders.rescheduleAll(context)

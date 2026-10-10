@@ -93,11 +93,10 @@ object Updater {
         }
     }
 
-    /** 앱을 열 때 하루 몇 번만 조용히 확인한다 */
+    /** 앱을 열 때마다 확인한다. 설치할 때까지 시작할 때마다 새 버전이 보이게 하기 위해 간격을 두지 않는다 */
     suspend fun autoCheck(context: Context) {
         val settings = AppSettings(context)
         if (!settings.autoUpdateCheck) return
-        if (System.currentTimeMillis() - settings.lastUpdateCheck < 6 * 60 * 60 * 1000L) return
         runCatching { fetchLatest() }.onSuccess {
             settings.lastUpdateCheck = System.currentTimeMillis()
             available = it

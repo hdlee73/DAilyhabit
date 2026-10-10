@@ -121,8 +121,26 @@ class MainActivity : ComponentActivity() {
                     Section.ABOUT to if (Updater.hasUpdate) "NEW" else "",
                 )
 
-                // 앱을 열면 새 버전이 있는지 조용히 확인한다
-                androidx.compose.runtime.LaunchedEffect(Unit) { Updater.autoCheck(applicationContext) }
+                // 앱을 열 때마다 새 버전을 확인하고, 있으면 설치할 때까지 안내한다
+                var updatePrompt by remember { mutableStateOf(false) }
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    Updater.autoCheck(applicationContext)
+                    if (Updater.hasUpdate) updatePrompt = true
+                }
+                val pendingUpdate = Updater.available
+                if (updatePrompt && Updater.hasUpdate && pendingUpdate != null && section != Section.ABOUT) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { updatePrompt = false },
+                        title = { Text("새 버전이 있어요") },
+                        text = { Text("v${pendingUpdate.version}이 나왔어요 (지금 v${BuildConfig.VERSION_NAME}).\n설치할 때까지 앱을 열 때마다 알려드려요.") },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(onClick = { updatePrompt = false; sectionIndex = Section.ABOUT.ordinal; scope.launch { drawer.close() } }) { Text("업데이트") }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = { updatePrompt = false }) { Text("나중에") }
+                        },
+                    )
+                }
 
                 fun go(s: Section) {
                     sectionIndex = s.ordinal
@@ -204,6 +222,7 @@ class MainActivity : ComponentActivity() {
                                             onEditorOpened = { createIn = null },
                                         )
                                         Section.ABOUT -> AboutScreen()
+                                        Section.REVIEW -> com.hdlee73.dailyhabit.ui.ReviewScreen()
                                         Section.SETTINGS -> SettingsScreen(onNavigate = ::go)
                                     }
                                 }

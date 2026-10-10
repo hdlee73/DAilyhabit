@@ -51,6 +51,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.hdlee73.dailyhabit.data.AppSettings
 import com.hdlee73.dailyhabit.data.Backup
+import com.hdlee73.dailyhabit.data.Export
 import com.hdlee73.dailyhabit.data.Updater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -86,6 +87,18 @@ fun SettingsScreen(onNavigate: (Section) -> Unit = {}, modifier: Modifier = Modi
             }.isSuccess
             lastBackup = settings.lastBackup
             Toast.makeText(context, if (ok) "백업 파일을 저장했어요" else "백업 파일을 저장하지 못했어요", Toast.LENGTH_LONG).show()
+        }
+    }
+    val saveExcel = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    ) { uri ->
+        if (uri != null) scope.launch {
+            val ok = runCatching {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.let { Export.writeXlsx(context, it) } ?: error("열 수 없는 위치")
+                }
+            }.isSuccess
+            Toast.makeText(context, if (ok) "엑셀 파일을 저장했어요" else "엑셀 파일을 저장하지 못했어요", Toast.LENGTH_LONG).show()
         }
     }
     val openBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -208,6 +221,16 @@ fun SettingsScreen(onNavigate: (Section) -> Unit = {}, modifier: Modifier = Modi
                 onClick = { openBackup.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("백업 파일에서 복원") }
+            Text(
+                "한 줄 일기와 맛집(방문 기록 포함)은 엑셀 파일로도 저장할 수 있어요. 엑셀 파일은 보관·확인용이고, 앱으로 다시 불러오지는 않아요.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 14.dp),
+            )
+            FilledTonalButton(
+                onClick = { saveExcel.launch("DailyHabit-diary-restaurants-${LocalDate.now()}.xlsx") },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) { Text("일기·맛집을 엑셀로 저장") }
         }
 
         SoftCard(onClick = { onNavigate(Section.ABOUT) }) {

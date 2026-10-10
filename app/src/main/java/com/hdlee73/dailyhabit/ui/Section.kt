@@ -16,6 +16,7 @@ enum class Section(val label: String) {
     SHOPPING("장보기"), // 메뉴에서는 숨김 (저장된 기록은 보존)
     BOOKS("독서"),
     ABOUT("앱 정보"),
+    REVIEW("월간 돌아보기"),
     ;
 
     companion object {
@@ -26,7 +27,7 @@ enum class Section(val label: String) {
         val primary: List<Section> get() = if (BuildConfig.CATHOLIC) listOf(GOSPEL, PRAYER) else listOf(QUOTE)
 
         /** '하루 관리' 묶음 */
-        val daily = listOf(SCHEDULE, TODO, ROUTINE, JOURNAL, RESTAURANT, BOOKS)
+        val daily = listOf(SCHEDULE, TODO, ROUTINE, JOURNAL, RESTAURANT, BOOKS, REVIEW)
 
         fun available(): List<Section> = primary + daily + SETTINGS + ABOUT
 

@@ -92,6 +92,7 @@ fun JournalScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, 
     var query by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<LocalDate?>(null) }
     var pickDate by remember { mutableStateOf(false) }
+    var onlyGratitude by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
 
     LaunchedEffect(openEditor) {
@@ -107,7 +108,9 @@ fun JournalScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, 
     val dirty = text.trim() != todayEntry?.text.orEmpty() || mood != (todayEntry?.mood ?: 0)
 
     val q = query.trim()
-    val shown = if (q.isEmpty()) entries else entries.filter { it.text.contains(q, ignoreCase = true) }
+    val shown = entries
+        .filter { !onlyGratitude || GratitudeWords.containsMatchIn(it.text) }
+        .filter { q.isEmpty() || it.text.contains(q, ignoreCase = true) }
     val grouped = shown.groupBy { YearMonth.from(LocalDate.ofEpochDay(it.epochDay)) }
     val thisMonth = YearMonth.from(today)
     val monthCount = entries.count { YearMonth.from(LocalDate.ofEpochDay(it.epochDay)) == thisMonth }
@@ -179,6 +182,14 @@ fun JournalScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, 
             }
         }
 
+        if (entries.isNotEmpty()) item {
+            androidx.compose.material3.FilterChip(
+                selected = onlyGratitude,
+                onClick = { onlyGratitude = !onlyGratitude },
+                label = { Text("🙏 감사 일기 모음") },
+            )
+        }
+
         if (entries.size > 3) item {
             TextField(
                 value = query,
@@ -203,7 +214,8 @@ fun JournalScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {}, 
         if (entries.isEmpty()) item {
             EmptyState("📖", "아직 쓴 일기가 없어요", "하루에 한 줄이면 충분해요. 위 칸에 오늘을 적어 보세요.")
         } else if (shown.isEmpty()) item {
-            EmptyState("🔍", "찾는 일기가 없어요", "다른 낱말로 찾아 보세요.")
+            if (onlyGratitude) EmptyState("🙏", "아직 감사 일기가 없어요", "일기에 ‘감사’나 ‘고마워’를 적으면 여기에 모여요.")
+            else EmptyState("🔍", "찾는 일기가 없어요", "다른 낱말로 찾아 보세요.")
         }
 
         grouped.forEach { (ym, list) ->

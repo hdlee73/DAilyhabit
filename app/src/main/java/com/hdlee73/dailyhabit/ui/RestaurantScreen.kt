@@ -169,9 +169,11 @@ fun RestaurantScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
-                SegmentedTabs(listOf("목록", "방문 달력"), mode, { mode = it })
+                SegmentedTabs(listOf("목록", "방문 달력", "지도"), mode, { mode = it })
             }
-            if (mode == 1) {
+            if (mode == 2) {
+                mapItems(all, context) { viewing = it }
+            } else if (mode == 1) {
                 item(key = "calendar") {
                     VisitCalendar(calMonth, visits, calDay, onMonth = { calMonth = it }, onSelect = { calDay = it })
                 }
@@ -196,6 +198,7 @@ fun RestaurantScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(top = 6.dp),
                         )
+                        if (v.photo.isNotBlank()) PhotoThumb(v.photo, 120.dp, Modifier.padding(top = 10.dp))
                     }
                 }
             } else {
@@ -277,14 +280,20 @@ fun RestaurantScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {
             onDismiss = { viewing = null },
             onEdit = { editing = viewingLive; viewing = null },
             visits = visits.filter { it.restaurantId == viewingLive.id },
-            onAddVisit = { d, note ->
+            onAddVisit = { d, note, photo ->
                 scope.launch {
-                    visitDao.insert(RestaurantVisit(restaurantId = viewingLive.id, epochDay = d.toEpochDay(), note = note))
+                    visitDao.insert(RestaurantVisit(restaurantId = viewingLive.id, epochDay = d.toEpochDay(), note = note, photo = photo))
                     syncVisits(viewingLive.id)
                 }
             },
             onUpdateVisit = { v -> scope.launch { visitDao.update(v); syncVisits(v.restaurantId) } },
-            onDeleteVisit = { id -> scope.launch { visitDao.delete(id); syncVisits(viewingLive.id) } },
+            onDeleteVisit = { id ->
+                scope.launch {
+                    visits.firstOrNull { it.id == id }?.let { com.hdlee73.dailyhabit.data.Photos.delete(context, it.photo) }
+                    visitDao.delete(id)
+                    syncVisits(viewingLive.id)
+                }
+            },
             onToggleRevisit = { scope.launch { dao.update(viewingLive.copy(revisit = !viewingLive.revisit)) } },
             onRate = { stars -> scope.launch { dao.update(viewingLive.copy(rating = stars)) } },
         )
@@ -299,7 +308,11 @@ fun RestaurantScreen(openEditor: Boolean = false, onEditorOpened: () -> Unit = {
                 creating = false; editing = null
             },
             onDelete = { r ->
-                scope.launch { visitDao.deleteOf(r.id); dao.delete(r) }
+                scope.launch {
+                    visits.filter { it.restaurantId == r.id }.forEach { com.hdlee73.dailyhabit.data.Photos.delete(context, it.photo) }
+                    visitDao.deleteOf(r.id)
+                    dao.delete(r)
+                }
                 editing = null
             },
         )
@@ -375,7 +388,7 @@ private fun RestaurantDetailSheet(
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     visits: List<RestaurantVisit>,
-    onAddVisit: (LocalDate, String) -> Unit,
+    onAddVisit: (LocalDate, String, String) -> Unit,
     onUpdateVisit: (RestaurantVisit) -> Unit,
     onDeleteVisit: (Long) -> Unit,
     onToggleRevisit: () -> Unit,
@@ -486,6 +499,7 @@ private fun RestaurantDetailSheet(
                         Modifier.fillMaxWidth().clickable { visitEditing = v }.padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        if (v.photo.isNotBlank()) PhotoThumb(v.photo, 44.dp, Modifier.padding(end = 12.dp))
                         Text(
                             LocalDate.ofEpochDay(v.epochDay).let { "${it.year}년 ${formatKoreanDate(it)}" },
                             style = MaterialTheme.typography.bodyLarge,
@@ -519,14 +533,14 @@ private fun RestaurantDetailSheet(
         }
     }
     if (visitAdding) {
-        VisitDialog(null, onDismiss = { visitAdding = false }, onDelete = null, onSave = { d, n -> onAddVisit(d, n); visitAdding = false })
+        VisitDialog(null, onDismiss = { visitAdding = false }, onDelete = null, onSave = { d, n, p -> onAddVisit(d, n, p); visitAdding = false })
     }
     visitEditing?.let { v ->
         VisitDialog(
             v,
             onDismiss = { visitEditing = null },
             onDelete = { onDeleteVisit(v.id); visitEditing = null },
-            onSave = { d, n -> onUpdateVisit(v.copy(epochDay = d.toEpochDay(), note = n)); visitEditing = null },
+            onSave = { d, n, p -> onUpdateVisit(v.copy(epochDay = d.toEpochDay(), note = n, photo = p)); visitEditing = null },
         )
     }
 }
@@ -535,14 +549,33 @@ private fun RestaurantDetailSheet(
 private fun VisitDialog(
     initial: RestaurantVisit?,
     onDismiss: () -> Unit,
-    onSave: (LocalDate, String) -> Unit,
+    onSave: (LocalDate, String, String) -> Unit,
     onDelete: (() -> Unit)?,
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val original = initial?.photo.orEmpty()
+    var photo by remember { mutableStateOf(original) }
+    // 이 창에서 새로 가져온 사진 (저장하지 않고 닫으면 지운다)
+    val created = remember { mutableListOf<String>() }
+    val pickPhoto = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) scope.launch {
+            val name = com.hdlee73.dailyhabit.data.Photos.import(context, uri)
+            if (name == null) android.widget.Toast.makeText(context, "사진을 가져오지 못했어요", android.widget.Toast.LENGTH_SHORT).show()
+            else { created.add(name); photo = name }
+        }
+    }
+    fun discardNew(keep: String) {
+        created.filter { it != keep }.forEach { com.hdlee73.dailyhabit.data.Photos.delete(context, it) }
+    }
+    val dismiss = { discardNew(original); onDismiss() }
     var date by remember { mutableStateOf(initial?.let { LocalDate.ofEpochDay(it.epochDay) } ?: LocalDate.now()) }
     var note by remember { mutableStateOf(initial?.note.orEmpty()) }
     var pick by remember { mutableStateOf(false) }
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = dismiss,
         title = { Text(if (initial == null) "방문 기록하기" else "방문 기록 수정") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -556,13 +589,35 @@ private fun VisitDialog(
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3,
                 )
+                if (photo.isNotBlank()) {
+                    PhotoThumb(photo, 160.dp)
+                    Row {
+                        TextButton(onClick = {
+                            pickPhoto.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }) { Text("사진 바꾸기") }
+                        TextButton(onClick = { photo = "" }) { Text("사진 빼기") }
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = {
+                            pickPhoto.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("📷 사진 추가") }
+                }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(date, note.trim()) }) { Text("저장") } },
+        confirmButton = {
+            TextButton(onClick = {
+                discardNew(photo)
+                if (original.isNotBlank() && original != photo) com.hdlee73.dailyhabit.data.Photos.delete(context, original)
+                onSave(date, note.trim(), photo)
+            }) { Text("저장") }
+        },
         dismissButton = {
             Row {
                 if (onDelete != null) TextButton(onClick = onDelete) { Text("삭제", color = MaterialTheme.colorScheme.error) }
-                TextButton(onClick = onDismiss) { Text("취소") }
+                TextButton(onClick = dismiss) { Text("취소") }
             }
         },
     )
@@ -806,5 +861,77 @@ private fun RestaurantEditorSheet(
             confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete(initial) }) { Text("삭제", color = MaterialTheme.colorScheme.error) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("취소") } },
         )
+    }
+}
+
+/** 동네(주소 앞부분)로 묶은 목록. 앱 안에 지도를 넣으려면 지도 서비스 키가 필요해서, 지도 앱을 여는 방식으로 만들었다 */
+private fun areaOf(address: String): String {
+    val words = address.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    return when {
+        words.isEmpty() -> "위치를 적지 않은 곳"
+        words.size == 1 -> words[0]
+        else -> words[0] + " " + words[1]
+    }
+}
+
+private fun openMap(context: android.content.Context, query: String) {
+    val geo = Uri.parse("geo:0,0?q=" + Uri.encode(query))
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, geo).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure {
+        runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://map.naver.com/p/search/" + Uri.encode(query))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+}
+
+private fun androidx.compose.foundation.lazy.LazyListScope.mapItems(
+    all: List<Restaurant>,
+    context: android.content.Context,
+    onOpen: (Restaurant) -> Unit,
+) {
+    val groups = all.groupBy { areaOf(it.address) }.entries.sortedWith(
+        compareBy<Map.Entry<String, List<Restaurant>>> { it.key.startsWith("위치를") }.thenByDescending { it.value.size }
+    )
+    item(key = "map-info") {
+        SoftCard(color = MaterialTheme.colorScheme.surfaceContainer, bordered = false) {
+            Text("📍 저장한 ${all.size}곳을 동네별로 모았어요", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "동네 이름 옆 버튼을 누르면 지도 앱에서 그 동네의 맛집을 찾아 보여줘요. 맛집 줄의 핀을 누르면 그 식당 위치가 열려요.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+    if (all.isEmpty()) item(key = "map-empty") {
+        EmptyState("🗺️", "저장한 맛집이 없어요", "맛집을 추가하면 동네별로 모아 볼 수 있어요.")
+    }
+    groups.forEach { (area, list) ->
+        item(key = "map-h-$area") {
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("$area · ${list.size}곳", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (!area.startsWith("위치를")) TextButton(onClick = { openMap(context, "$area 맛집") }) {
+                    Icon(Icons.Filled.Map, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("지도 앱")
+                }
+            }
+        }
+        items(list, key = { "map-${it.id}" }) { r ->
+            SoftCard(onClick = { onOpen(r) }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(r.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val meta = listOf(r.category, r.address).filter { it.isNotBlank() }.joinToString(" · ")
+                        if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    IconButton(onClick = { openMap(context, if (r.address.isBlank()) r.name else "${r.name} ${r.address}") }) {
+                        Icon(Icons.Filled.Place, "지도에서 보기", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        }
     }
 }

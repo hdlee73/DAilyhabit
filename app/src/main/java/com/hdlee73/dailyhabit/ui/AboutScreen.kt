@@ -219,8 +219,8 @@ fun AboutScreen(modifier: Modifier = Modifier) {
             HorizontalDivider(Modifier.padding(vertical = 14.dp), color = MaterialTheme.colorScheme.outlineVariant)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("앱을 열 때 자동 확인", style = MaterialTheme.typography.bodyLarge)
-                    Text("새 버전이 있으면 메뉴에 NEW가 떠요", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("새 버전 알림 받기", style = MaterialTheme.typography.bodyLarge)
+                    Text("새 버전이 나오면 알림을 보내고, 설치할 때까지 앱을 열 때마다 알려줘요", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = autoCheck, onCheckedChange = { autoCheck = it; settings.autoUpdateCheck = it })
             }
